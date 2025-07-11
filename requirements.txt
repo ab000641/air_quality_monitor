@@ -1,0 +1,6 @@
+Flask
+python-dotenv
+Flask-SQLAlchemy
+psycopg2-binary # PostgreSQL 資料庫驅動
+requests        # 用於 API 呼叫
+Flask-APScheduler

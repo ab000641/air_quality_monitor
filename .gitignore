@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.env
+
+# Database
+*.sqlite3
+*.db
+/db_data/
+
+# IDE (Optional, if you use a specific IDE)
+.idea/
+.vscode/
+
+# Logs
+*.log
