@@ -332,10 +332,10 @@ def line_notify_callback():
         flash(f"交換 LINE Notify Token 失敗: {e}", "error")
         return redirect(url_for('index'))
 
-# --- 應用程式上下文 ---
-@app.before_first_request
-def create_tables():
-    init_db()
+# 在應用程式上下文中執行資料庫初始化
+with app.app_context():
+    init_db() # 調用 init_db() 確保在應用程式上下文中執行
+    print("資料庫初始化及表格創建已執行。")
 
 # --- 運行應用程式 ---
 if __name__ == '__main__':

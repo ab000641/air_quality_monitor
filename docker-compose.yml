@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: air_quality_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data # 資料持久化
+    ports:
+      - "5433:5432" # 開放給本機其他工具連線，容器內部仍然是 5432
+
+  web:
+    build: .
+    container_name: air_quality_web
+    restart: unless-stopped
+    ports:
+      - "5001:5001" # Flask 應用程式監聽在 5001
+    environment:
+      # 環境變數會從 .env 文件載入
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+    volumes:
+      - .:/app # 將主機當前目錄掛載到容器的 /app 目錄，方便開發時同步代碼
+    depends_on:
+      - db
+    command: sh -c "sleep 5 && python3 app.py" # 等待 db 啟動後再執行 app.py
+
+volumes:
+  db_data:
