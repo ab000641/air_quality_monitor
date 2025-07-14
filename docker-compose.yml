@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -15,7 +13,7 @@ services:
       - "5433:5432" # 開放給本機其他工具連線，容器內部仍然是 5432
 
   web:
-    build: .
+    image: cokehuang/air_quality_monitor:latest
     container_name: air_quality_web
     restart: unless-stopped
     ports:
