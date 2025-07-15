@@ -22,9 +22,19 @@ jobs:
     - name: Build and push Docker image to Docker Hub
       uses: docker/build-push-action@v5
       with:
-        context: . # Dockerfile 和應用程式檔案的上下文路徑 (這裡指當前目錄)
+        context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/air_quality_monitor:latest # 您的 Docker Hub 用戶名/映像名稱:latest
+        tags: cokehuang/air_quality_monitor:latest # 您的 Docker Hub 用戶名/映像名稱:latest
+
+    # 新增的步驟：複製 docker-compose.yml 到 EC2
+    - name: Copy docker-compose.yml to EC2
+      uses: appleboy/scp-action@master # 使用 scp-action 進行檔案傳輸
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.yml" # 這是源檔案在 GitHub 運行器上的路徑
+        target: "~/air_quality_monitor/" # 這是目標路徑在 EC2 上的路徑
 
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master # 一個常用的 SSH Action，用於在遠端執行命令
@@ -35,17 +45,12 @@ jobs:
         script: |
           echo "Connecting to EC2 and deploying..."
           cd ~/air_quality_monitor # 進入 EC2 上的專案目錄
-
           # 登入 Docker Hub (在 EC2 上，以便拉取私有映像，如果您的映像是私有的)
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
           # 拉取最新的 Docker 映像
-          docker pull ${{ secrets.DOCKER_USERNAME }}/air_quality_monitor:latest
-
+          docker pull cokehuang/air_quality_monitor:latest
           # 停止並移除舊的容器
           docker-compose down
-
           # 啟動新的容器 (它會使用 docker-compose.yml 中指定的新映像)
           docker-compose up -d
-
           echo "Deployment complete."
