@@ -15,9 +15,8 @@ class Config:
 
     # 明確設定 SQLALCHEMY_DATABASE_URI
     # 這裡確保即使 .env 沒載入 DATABASE_URL，也有一個備用值
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL') or \
-                              "postgresql+psycopg2://ab000641:Ab781178@localhost:5433/air_quality_db" # <--- 這行是關鍵！請確保這裡的用戶名、密碼、端口、資料庫名與您的 Docker Compose 硬編碼內容完全一致！
-
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    
     # *** 新增除錯語句 ***
     print(f"DEBUG: SQLALCHEMY_DATABASE_URI in Config: {SQLALCHEMY_DATABASE_URI}")
     # *******************
