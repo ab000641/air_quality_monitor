@@ -20,48 +20,56 @@ class Station(db.Model):
     pm10 = db.Column(db.Integer)
     publish_time = db.Column(db.DateTime) # AQI 發布時間
 
-    # 與 LineNotifyBinding 的多對多關係
-    bindings = db.relationship(
-        'LineNotifyBinding',
-        secondary='binding_stations',
-        back_populates='stations'
+    # 與 LineUser 的多對多關係，透過 LineUserStationPreference 中間表
+    # back_populates 將在 LineUser 模型中定義對應的關係
+    user_preferences = db.relationship(
+        'LineUserStationPreference',
+        back_populates='station',
+        cascade="all, delete-orphan" # 當測站被刪除時，刪除相關的偏好設定
     )
 
     def __repr__(self):
         return f"<Station {self.name} ({self.county})>"
 
-# LINE 通知綁定模型
-class LineNotifyBinding(db.Model):
-    __tablename__ = 'line_notify_bindings' # 表格名稱
+# Line 用戶模型 (取代 LineNotifyBinding)
+class LineUser(db.Model):
+    __tablename__ = 'line_users' # 表格名稱
 
     id = db.Column(db.Integer, primary_key=True)
-    # LINE Notify Token 必須加密儲存，這裡先用 VARCHAR 作為範例
-    # 在實際生產環境，應使用加密方法，例如 Fernet
-    line_notify_token = db.Column(db.String(255), unique=True, nullable=False)
-    threshold_value = db.Column(db.Integer, default=100) # 用戶設定的警報閾值，預設 100 (黃色警戒)
+    line_user_id = db.Column(db.String(50), unique=True, nullable=False) # Line 用戶的唯一 ID
+    is_subscribed = db.Column(db.Boolean, default=True) # 用戶是否仍然訂閱 (例如，是否封鎖了 Bot)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=True) # 是否啟用此通知
+    
+    # 這裡可以儲存一些用戶的預設偏好，例如預設警報閾值
+    default_threshold = db.Column(db.Integer, default=100) # 用戶預設的警報閾值
 
-    # 與 Station 的多對多關係
-    stations = db.relationship(
-        'Station',
-        secondary='binding_stations',
-        back_populates='bindings'
+    # 與 Station 的多對多關係，透過 LineUserStationPreference 中間表
+    stations_preferences = db.relationship(
+        'LineUserStationPreference',
+        back_populates='line_user',
+        cascade="all, delete-orphan" # 當用戶被刪除時，刪除相關的偏好設定
     )
 
     def __repr__(self):
-        return f"<LineNotifyBinding {self.id} Active: {self.is_active}>"
+        return f"<LineUser {self.line_user_id} Subscribed: {self.is_subscribed}>"
 
-# 綁定-測站關聯模型 (多對多中間表)
-class BindingStation(db.Model):
-    __tablename__ = 'binding_stations' # 表格名稱
+# 用戶測站偏好設定模型 (多對多中間表，取代 BindingStation)
+class LineUserStationPreference(db.Model):
+    __tablename__ = 'line_user_station_preferences' # 表格名稱
 
-    binding_id = db.Column(db.Integer, db.ForeignKey('line_notify_bindings.id'), primary_key=True)
+    line_user_id = db.Column(db.String(50), db.ForeignKey('line_users.line_user_id'), primary_key=True)
     station_id = db.Column(db.Integer, db.ForeignKey('stations.id'), primary_key=True)
+    
+    # 用戶為這個特定測站設定的閾值 (如果沒有設定，可以繼承 LineUser 的 default_threshold)
+    threshold_value = db.Column(db.Integer, default=100) 
+    
+    # 可以添加一個上次發送警報的時間戳，避免重複發送
+    last_alert_sent_at = db.Column(db.DateTime)
 
-    # 建立關係，可以直接透過 binding_station 存取相關物件
-    binding = db.relationship('LineNotifyBinding', backref=db.backref('station_associations', cascade="all, delete-orphan"))
-    station = db.relationship('Station', backref=db.backref('binding_associations', cascade="all, delete-orphan"))
+    # 建立關係
+    line_user = db.relationship('LineUser', back_populates='stations_preferences')
+    station = db.relationship('Station', back_populates='user_preferences')
 
     def __repr__(self):
-        return f"<BindingStation BindingID: {self.binding_id}, StationID: {self.station_id}>"
+        return (f"<LineUserStationPreference UserID: {self.line_user_id}, "
+                f"StationID: {self.station_id}, Threshold: {self.threshold_value}>")
