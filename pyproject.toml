@@ -1,0 +1,29 @@
+[project]
+name = "air-quality-monitor"
+version = "0.1.0"
+description = "Air quality and UV monitoring project with Flask and Line Messaging API"
+authors = [
+    { name = "huangweihan", email = "ab000641@gmail.com" }
+]
+dependencies = [
+    "Flask",
+    "python-dotenv",
+    "Flask-SQLAlchemy",
+    "psycopg2-binary",
+    "requests",
+    "Flask-APScheduler",
+    "line-bot-sdk", # 確保包含 Line Messaging API SDK
+    "alembic",      # 確保包含 Alembic
+]
+requires-python = ">=3.9" # 根據您使用的 Python 版本調整
+
+[build-system]
+requires = ["setuptools>=61.0"] # 或者其他構建系統，setuptools 是最常見的
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+# 可以為 uv 添加一些特定配置，例如預設的虛擬環境名稱
+# venv-dir = ".venv" # 預設就是 .venv，通常不需要特別設定
+
+[tool.setuptools.packages.find]
+where = ["."] # 告訴 setuptools 在當前目錄查找包

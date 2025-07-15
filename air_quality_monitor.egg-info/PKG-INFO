@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: air-quality-monitor
+Version: 0.1.0
+Summary: Air quality and UV monitoring project with Flask and Line Messaging API
+Author-email: huangweihan <ab000641@gmail.com>
+Requires-Python: >=3.9
+Requires-Dist: Flask
+Requires-Dist: python-dotenv
+Requires-Dist: Flask-SQLAlchemy
+Requires-Dist: psycopg2-binary
+Requires-Dist: requests
+Requires-Dist: Flask-APScheduler
+Requires-Dist: line-bot-sdk
+Requires-Dist: alembic

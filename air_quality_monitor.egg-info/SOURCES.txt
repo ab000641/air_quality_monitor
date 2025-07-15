@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+air_quality_monitor.egg-info/PKG-INFO
+air_quality_monitor.egg-info/SOURCES.txt
+air_quality_monitor.egg-info/dependency_links.txt
+air_quality_monitor.egg-info/requires.txt
+air_quality_monitor.egg-info/top_level.txt

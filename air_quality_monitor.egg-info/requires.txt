@@ -1,0 +1,8 @@
+Flask
+python-dotenv
+Flask-SQLAlchemy
+psycopg2-binary
+requests
+Flask-APScheduler
+line-bot-sdk
+alembic
