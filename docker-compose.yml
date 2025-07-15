@@ -32,6 +32,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    command: gunicorn --bind 0.0.0.0:5001 app:app    
 
 # --- 請確保這個 volumes 區塊在檔案的頂層，與 services: 對齊 ---
 volumes:
