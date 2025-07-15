@@ -6,3 +6,4 @@ requests        # 用於 API 呼叫
 Flask-APScheduler
 line-bot-sdk
 alembic
+gunicorn
