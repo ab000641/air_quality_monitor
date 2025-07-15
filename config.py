@@ -1,19 +1,27 @@
+# config.py
+
 import os
 from dotenv import load_dotenv
 
 # 從 .env 檔案載入環境變數
-load_dotenv()
+# 確保這裡可以找到 .env 檔案，如果 config.py 不在專案根目錄，可能需要指定 dotenv_path
+load_dotenv() 
 
 class Config:
     # 從環境變數獲取資料庫相關設定
     DB_NAME = os.getenv('DB_NAME')
     DB_USER = os.getenv('DB_USER')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
-    # DATABASE_URL 會在 docker-compose.yml 中組裝並傳給容器，或在這裡直接組裝
-    # 這裡先使用一個範例，實際在 Flask app.py 中會用 os.getenv('DATABASE_URL')
-    # 或者透過 Docker Compose 的方式自動設定
-    # SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@db:5432/{DB_NAME}"
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+
+    # 明確設定 SQLALCHEMY_DATABASE_URI
+    # 這裡確保即使 .env 沒載入 DATABASE_URL，也有一個備用值
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL') or \
+                              "postgresql+psycopg2://ab000641:Ab781178@localhost:5433/air_quality_db" # <--- 這行是關鍵！請確保這裡的用戶名、密碼、端口、資料庫名與您的 Docker Compose 硬編碼內容完全一致！
+
+    # *** 新增除錯語句 ***
+    print(f"DEBUG: SQLALCHEMY_DATABASE_URI in Config: {SQLALCHEMY_DATABASE_URI}")
+    # *******************
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False # 關閉 Flask-SQLAlchemy 事件追蹤，減少記憶體消耗
 
     # 環保署 AQI API Key

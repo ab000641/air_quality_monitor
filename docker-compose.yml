@@ -1,32 +1,38 @@
+# docker-compose.yml
 services:
   db:
     image: postgres:16-alpine
     container_name: air_quality_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: air_quality_db
+      POSTGRES_USER: ab000641 # 測試後，我們會將其改回使用 .env 變數
+      POSTGRES_PASSWORD: Ab781178 # 測試後，我們會將其改回使用 .env 變數
     volumes:
       - db_data:/var/lib/postgresql/data # 資料持久化
     ports:
-      - "5433:5432" # 開放給本機其他工具連線，容器內部仍然是 5432
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ab000641 -d air_quality_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   web:
-    image: cokehuang/air_quality_monitor:latest
+    build: .
     container_name: air_quality_web
     restart: unless-stopped
     ports:
-      - "5001:5001" # Flask 應用程式監聽在 5001
+      - "5000:5000"
     environment:
-      # 環境變數會從 .env 文件載入
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY}
-      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
-      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      DATABASE_URL: postgresql+psycopg2://ab000641:Ab781178@db:5432/air_quality_db # 測試後會改回
+      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY} # 從 .env 讀取
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN} # 從 .env 讀取
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET} # 從 .env 讀取
     depends_on:
-      - db
-    command: sh -c "sleep 5 && python3 app.py" # 等待 db 啟動後再執行 app.py
+      db:
+        condition: service_healthy
 
+# --- 請確保這個 volumes 區塊在檔案的頂層，與 services: 對齊 ---
 volumes:
-  db_data:
+  db_data: # 定義一個名為 db_data 的卷軸
