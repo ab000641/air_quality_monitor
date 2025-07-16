@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手動 LINE 綁定</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>手動 LINE 綁定</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <form action="{{ url_for('manual_line_binding') }}" method="POST">
+            <label for="line_user_id">LINE 用戶 ID:</label><br>
+            <input type="text" id="line_user_id" name="line_user_id" required><br><br>
+
+            <label for="stations">選擇監測站 (可多選，按 Ctrl/Cmd 鍵):</label><br>
+            <select id="stations" name="station_ids" multiple required size="10">
+                {% for station in stations %}
+                    <option value="{{ station.id }}">{{ station.county }} - {{ station.name }}</option>
+                {% endfor %}
+            </select><br><br>
+
+            <label for="threshold">警報閾值 (AQI):</label><br>
+            <input type="number" id="threshold" name="threshold" value="100" min="0" required><br><br>
+
+            <button type="submit">綁定 LINE 用戶和測站</button>
+        </form>
+        <p><a href="{{ url_for('index') }}">返回首頁</a></p>
+    </div>
+</body>
+</html>
