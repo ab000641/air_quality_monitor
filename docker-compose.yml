@@ -9,9 +9,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - db_data:/var/lib/postgresql/data # 資料持久化
-    ports:
-      - "5433:5432"
+      - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -22,18 +20,41 @@ services:
     image: cokehuang/air_quality_monitor:latest
     container_name: air_quality_web
     restart: unless-stopped
-    ports:
-      - "5001:5001"
+    # 不再需要 ports 映射到主機，因為 Nginx 容器會直接在內部網路中連接
+    # ports:
+    #   - "5001:5001" # <--- 確保這行已刪除或註釋掉
     environment:
       DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY} # 從 .env 讀取
-      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN} # 從 .env 讀取
-      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET} # 從 .env 讀取
+      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy
-    command: gunicorn --bind 0.0.0.0:5001 app:app    
+    command: gunicorn --bind 0.0.0.0:5001 app:app # 容器內部仍然監聽 5001
 
-# --- 請確保這個 volumes 區塊在檔案的頂層，與 services: 對齊 ---
+  nginx: # <--- 新增 Nginx 服務
+    image: nginx:latest # 使用官方 Nginx 映像檔
+    container_name: air_quality_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"   # 將主機的 80 埠映射到 Nginx 容器的 80 埠
+      - "443:443" # 將主機的 443 埠映射到 Nginx 容器的 443 埠
+    volumes:
+      # 將 Nginx 配置檔案掛載到容器內部
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d/:/etc/nginx/conf.d/:ro # 放置各個站點的配置
+      # 將 Let's Encrypt 憑證掛載到容器內部 (讀取權限)
+      - /etc/letsencrypt/live/ab000641.site/:/etc/letsencrypt/live/ab000641.site/:ro
+      - /etc/letsencrypt/options-ssl-nginx.conf:/etc/nginx/options-ssl-nginx.conf:ro
+      - /etc/letsencrypt/ssl-dhparams.pem:/etc/nginx/ssl-dhparams.pem:ro
+      # 掛載靜態檔案目錄 (如果您的主頁是靜態的)
+      - ./html/ab000641.site/:/var/www/html/ab000641.site/:ro
+      # - ./html/invoice.ab000641.site/:/var/www/html/invoice.ab000641.site/:ro # 如果有發票專案靜態頁面
+    depends_on:
+      web:
+        condition: service_started # 確保 web 服務啟動後 Nginx 才啟動
+
 volumes:
-  db_data: # 定義一個名為 db_data 的卷軸
+  db_data:
