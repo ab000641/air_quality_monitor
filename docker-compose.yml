@@ -43,14 +43,11 @@ services:
     volumes:
       # 將 Nginx 配置檔案掛載到容器內部
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d/:/etc/nginx/conf.d/:ro # 放置各個站點的配置
-      # 將 Let's Encrypt 憑證掛載到容器內部 (讀取權限)
-      - /etc/letsencrypt/live/ab000641.site/:/etc/letsencrypt/live/ab000641.site/:ro
-      - /etc/letsencrypt/options-ssl-nginx.conf:/etc/nginx/options-ssl-nginx.conf:ro
-      - /etc/letsencrypt/ssl-dhparams.pem:/etc/nginx/ssl-dhparams.pem:ro
-      # 掛載靜態檔案目錄 (如果您的主頁是靜態的)
-      - ./html/ab000641.site/:/var/www/html/ab000641.site/:ro
-      # - ./html/invoice.ab000641.site/:/var/www/html/invoice.ab000641.site/:ro # 如果有發票專案靜態頁面
+      - ./nginx/conf.d/air_quality_monitor.conf:/etc/nginx/conf.d/air_quality_monitor.conf:ro
+      # 掛載 Let's Encrypt 憑證 (這些在 EC2 主機上，不在 Docker 容器內)
+      - /etc/letsencrypt/live/ab000641.site/:/etc/nginx/ssl/live/ab000641.site/:ro
+      - /etc/letsencrypt/options-ssl-nginx.conf:/etc/nginx/ssl/options-ssl-nginx.conf:ro
+      - /etc/letsencrypt/ssl-dhparams.pem:/etc/nginx/ssl/ssl-dhparams.pem:ro
     depends_on:
       web:
         condition: service_started # 確保 web 服務啟動後 Nginx 才啟動
