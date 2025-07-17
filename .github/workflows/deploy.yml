@@ -45,21 +45,28 @@ jobs:
           echo "Connecting to EC2 and deploying..."
           cd ~/air_quality_monitor
 
+          # --- 新增詳細診斷步驟：在 Docker Compose 啟動前檢查檔案狀態和內容 ---
+          echo "--- Diagnostic: Checking Nginx config files on EC2 ---"
+          echo "Listing contents of ~/air_quality_monitor/nginx/conf.d/:"
+          ls -l ~/air_quality_monitor/nginx/conf.d/
+          echo ""
+          echo "Content of ~/air_quality_monitor/nginx/conf.d/air_quality_monitor.conf:"
+          cat ~/air_quality_monitor/nginx/conf.d/air_quality_monitor.conf
+          echo "--- End of Diagnostic ---"
+          # ------------------------------------------------------------------
+
           # 登入 Docker Hub
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-          # --- 新增：調整 Let's Encrypt 憑證的權限 ---
+          # 調整 Let's Encrypt 憑證的權限 (保持這一步，以防萬一權限問題再次出現)
           echo "Adjusting Let's Encrypt certificate permissions..."
-          # 確保憑證目錄本身可被訪問 (執行權限)
           sudo chmod 755 /etc/letsencrypt/live/
           sudo chmod 755 /etc/letsencrypt/live/ab000641.site/
-          # 讓憑證檔案對其他用戶可讀 (Nginx 容器內的用戶)
           sudo chmod 644 /etc/letsencrypt/live/ab000641.site/fullchain.pem
-          sudo chmod 644 /etc/letsencrypt/live/ab000641.site/privkey.pem # 私鑰通常更嚴格，但為了解決問題暫時放寬
+          sudo chmod 644 /etc/letsencrypt/live/ab000641.site/privkey.pem
           sudo chmod 644 /etc/letsencrypt/options-ssl-nginx.conf
           sudo chmod 644 /etc/letsencrypt/ssl-dhparams.pem
           echo "Certificate permissions adjusted."
-          # -------------------------------------------------
 
           # 停止並移除舊的容器和相關資源
           docker-compose down --volumes --rmi all --remove-orphans
