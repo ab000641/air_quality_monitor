@@ -20,9 +20,8 @@ services:
     image: cokehuang/air_quality_monitor:latest
     container_name: air_quality_web
     restart: unless-stopped
-    # 不再需要 ports 映射到主機，因為 Nginx 容器會直接在內部網路中連接
-    # ports:
-    #   - "5001:5001" # <--- 確保這行已刪除或註釋掉
+    ports:
+      - "5001:5001"
     environment:
       DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       EPA_AQI_API_KEY: ${EPA_AQI_API_KEY}
