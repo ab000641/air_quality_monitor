@@ -43,15 +43,20 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           echo "Connecting to EC2 and deploying..."
-          cd ~/air_quality_monitor # 進入 EC2 上的專案目錄
-          # 登入 Docker Hub (在 EC2 上，以便拉取私有映像，如果您的映像是私有的)
-          # 注意：這裡的登入是為了 docker pull。如果您的映像檔是公開的，可以省略此步驟。
+          cd ~/air_quality_monitor
+
+          # --- 新增診斷步驟：在 Docker Compose 啟動前檢查檔案類型 ---
+          echo "Checking file type on EC2 before Docker Compose up..."
+          ls -ld ~/air_quality_monitor/nginx/conf.d/air_quality_monitor.conf
+          echo "--- End of file type check ---"
+          # --------------------------------------------------------
+
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           # 停止並移除舊的容器和相關資源 (重要！這會清理舊的 web 映像檔)
-          docker-compose down --volumes --rmi all --remove-orphans # <--- 修正這裡！
+          docker-compose down --volumes --rmi all --remove-orphans
 
           # 拉取最新的 Docker 映像 (現在 docker-compose.yml 指定了映像名稱)
-          docker-compose pull # <--- 修正這裡！不再需要指定 web，因為 docker-compose.yml 已經有 image: 欄位
+          docker-compose pull
           
           # 啟動新的容器 (它會使用 docker-compose.yml 中指定的新映像)
           docker-compose up -d
