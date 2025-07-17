@@ -26,14 +26,13 @@ jobs:
         push: true
         tags: cokehuang/air_quality_monitor:latest # 您的 Docker Hub 用戶名/映像名稱:latest
 
-    # 新增的步驟：複製 docker-compose.yml 到 EC2
-    - name: Copy docker-compose.yml and .env to EC2
+    - name: Copy deployment files to EC2
       uses: appleboy/scp-action@master # 使用 scp-action 進行檔案傳輸
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "docker-compose.yml,.env" # 這是源檔案在 GitHub 運行器上的路徑
+        source: "docker-compose.yml,.env,nginx/"
         target: "~/air_quality_monitor/" # 這是目標路徑在 EC2 上的路徑
 
     - name: Deploy to EC2
