@@ -27,20 +27,21 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/* # 再次清理 APT 緩存
 
-# 安裝 Tailwind CSS 相關依賴
-# 注意：這裡使用 npm install --global 是為了確保在任何地方都能執行 npx tailwindcss
-RUN npm install --global postcss-cli autoprefixer tailwindcss
-
 # 將應用程式的所有檔案複製到工作目錄
 COPY . .
 
 # 確保 static/dist 目錄存在，以便 Tailwind 可以寫入輸出檔案
 RUN mkdir -p static/dist
 
+# --- 安裝 Tailwind CSS 相關依賴（本地安裝）---
+# 注意：這裡不再使用 --global
+RUN npm install postcss-cli autoprefixer tailwindcss
+
 # --- 編譯 Tailwind CSS ---
 # 確保 Tailwind 的配置文件在 COPY . . 之後才執行
-# 添加一行來確保 npx 能夠找到全域安裝的工具
-RUN export PATH="$(npm bin -g):$PATH" && npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify
+# 現在 npx 會在本地 node_modules/.bin 中查找
+RUN npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify
+
 
 # 定義應用程式監聽的端口
 EXPOSE 5001
