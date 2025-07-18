@@ -4,31 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>空氣品質監測</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        ul { list-style-type: none; padding: 0; }
-        li { margin-bottom: 10px; }
-        .station { border: 1px solid #ccc; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .station-name { font-weight: bold; font-size: 1.2em; color: #0056b3; }
-        .no-data { color: #888; font-style: italic; }
-    </style>
+    <link href="{{ url_for('static', filename='dist/output.css') }}" rel="stylesheet">
 </head>
-<body>
-    <h1>空氣品質監測站列表123</h1>
-    {% if stations %}
-        <ul>
-            {% for station in stations %}
-                <li class="station">
-                    <div class="station-name">{{ station.SiteName }} ({{ station.SiteId }})</div>
-                    <div>縣市: {{ station.County }}</div>
-                    <div>地址: {{ station.Address }}</div>
-                    {# 您可以在這裡顯示更多站點資訊，例如經緯度等 #}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p class="no-data">目前沒有可用的監測站資料。</p>
-    {% endif %}
+<body class="font-sans bg-gray-50 text-gray-800">
+    <div class="container mx-auto p-4 md:p-8 bg-white rounded-lg shadow-lg my-8">
+        <h1 class="text-3xl font-bold text-center text-blue-700 mb-6 md:mb-10">空氣品質監測站列表</h1>
+        
+        {% if stations %}
+            <ul class="list-none p-0">
+                {% for station in stations %}
+                    <li class="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4 flex flex-wrap items-center">
+                        <div class="w-full pb-3 mb-3 border-b border-gray-200">
+                            <div class="text-xl font-semibold text-blue-600 mb-1">{{ station.name }} (<span class="text-gray-500">{{ station.site_id }}</span>)</div>
+                            <div class="text-sm text-gray-500">{{ station.county }}</div>
+                        </div>
+
+                        {% if station.aqi is not none %}
+                            <div class="w-full md:w-1/2 lg:w-1/3 pr-2 mb-3 md:mb-0">
+                                <div class="text-gray-600 text-sm">AQI:</div>
+                                <div class="text-4xl font-extrabold mt-1" style="color: 
+                                    {% if station.status == '良好' %} #00e676
+                                    {% elif station.status == '普通' %} #ffeb3b
+                                    {% elif station.status == '對敏感族群不健康' %} #ff9800
+                                    {% elif station.status == '不健康' %} #f44336
+                                    {% elif station.status == '非常不健康' %} #9c27b0
+                                    {% elif station.status == '危害' %} #795548
+                                    {% else %} #9e9e9e
+                                    {% endif %};">
+                                    {{ station.aqi }}
+                                </div>
+                                <div class="text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white" style="background-color: 
+                                    {% if station.status == '良好' %} #00e676
+                                    {% elif station.status == '普通' %} #ffeb3b
+                                    {% elif station.status == '對敏感族群不健康' %} #ff9800
+                                    {% elif station.status == '不健康' %} #f44336
+                                    {% elif station.status == '非常不健康' %} #9c27b0
+                                    {% elif station.status == '危害' %} #795548
+                                    {% else %} #9e9e9e
+                                    {% endif %}; color: {% if station.status == '普通' %} #333 {% else %} #fff {% endif %};">
+                                    {{ station.status if station.status else 'N/A' }}
+                                </div>
+                            </div>
+                            <div class="w-full md:w-1/2 lg:w-2/3 pl-2 mb-3 md:mb-0">
+                                <div class="text-gray-600 text-sm">詳細數據:</div>
+                                <div class="mt-1 text-lg">PM2.5: <span class="font-medium">{{ station.pm25 if station.pm25 is not none else 'N/A' }}</span></div>
+                                <div class="mt-1 text-lg">PM10: <span class="font-medium">{{ station.pm10 if station.pm10 is not none else 'N/A' }}</span></div>
+                            </div>
+                            <div class="w-full text-sm text-gray-600 border-t border-dashed border-gray-200 pt-3 mt-3">
+                                最後更新時間: <span class="font-medium">{{ station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A' }}</span>
+                            </div>
+                        {% else %}
+                            <div class="w-full text-center text-gray-500 italic p-4 bg-gray-100 rounded-md">目前無即時數據。</div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-center text-gray-600 italic p-6 bg-gray-100 rounded-md">目前沒有可用的監測站資料。</p>
+        {% endif %}
+    </div>
 </body>
 </html>
