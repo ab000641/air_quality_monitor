@@ -18,18 +18,14 @@ RUN apt-get update && apt-get install -y \
     apt-transport-https \
     ca-certificates \
     software-properties-common \
+    # 這裡可以移除 rm -rf /var/lib/apt/lists/* 因為 NodeSource 腳本會再次更新 apt
     && rm -rf /var/lib/apt/lists/*
 
-# 第2步：添加 NodeSource GPG 金鑰
-# 使用 NodeSource 官方推薦的安裝方式來確保金鑰正確添加
-RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/nodesource.gpg >/dev/null
-
-# 第3步：添加 NodeSource 倉庫到 APT sources.list.d
-# 注意：這裡我們使用 /etc/apt/trusted.gpg.d/nodesource.gpg 作為 signed-by
-RUN echo "deb [signed-by=/etc/apt/trusted.gpg.d/nodesource.gpg] https://deb.nodesource.com/node_20.x bullseye main" | tee /etc/apt/sources.list.d/nodesource.list
-
-# 第4步：更新 apt 倉庫列表並安裝 nodejs
-RUN apt-get update && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
+# 第2步：使用 NodeSource 官方腳本來添加倉庫和安裝 Node.js
+# 這一步會處理 GPG 金鑰、添加倉庫、並安裝 Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/* # 再次清理 APT 緩存
 
 # 安裝 Tailwind CSS 相關依賴
 # 注意：這裡使用 npm install --global 是為了確保在任何地方都能執行 npx tailwindcss
