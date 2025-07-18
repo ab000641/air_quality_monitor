@@ -39,7 +39,8 @@ RUN mkdir -p static/dist
 
 # --- 編譯 Tailwind CSS ---
 # 確保 Tailwind 的配置文件在 COPY . . 之後才執行
-RUN npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify
+# 添加一行來確保 npx 能夠找到全域安裝的工具
+RUN export PATH="$(npm bin -g):$PATH" && npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify
 
 # 定義應用程式監聽的端口
 EXPOSE 5001
