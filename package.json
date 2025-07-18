@@ -1,0 +1,17 @@
+{
+    "name": "air-quality-app",
+    "version": "1.0.0",
+    "description": "Flask application for air quality monitoring with Tailwind CSS",
+    "main": "index.js",
+    "scripts": {
+      "build:css": "tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+      "tailwindcss": "^3.0.0",
+      "postcss-cli": "^11.0.0",
+      "autoprefixer": "^10.0.0"
+    }
+  }
