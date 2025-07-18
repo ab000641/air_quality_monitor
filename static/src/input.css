@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 您可以在這裡添加任何自定義的 CSS */
+/* 例如： */
+/* .custom-card { */
+/* @apply bg-white p-4 rounded-lg shadow; */
+/* } */
