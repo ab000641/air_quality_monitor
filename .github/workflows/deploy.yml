@@ -13,6 +13,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4 # 檢出 GitHub 儲存庫的程式碼
 
+    # --- 新增：Node.js 設定和 Tailwind CSS 編譯步驟 ---
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # 指定 Node.js 版本，與您之前使用的 Node 20 保持一致
+
+    - name: Install Tailwind CSS dependencies
+      # 不再使用 --global，因為是在 CI 環境中臨時安裝來編譯
+      run: npm install postcss-cli autoprefixer tailwindcss
+      working-directory: ${{ github.workspace }} # 確保在專案根目錄執行 npm install
+
+    - name: Compile Tailwind CSS
+      run: npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify
+      working-directory: ${{ github.workspace }} # 確保在專案根目錄執行 npx
+    # --- 新增步驟結束 ---
+
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
