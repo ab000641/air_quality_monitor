@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y \
 # 添加 Node.js 的官方來源並安裝 Node.js LTS 版本
 # 注意：NodeSource 倉庫名稱可能會因 Debian 版本略有不同，但 `node_20.x` 通常是兼容的
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodesource.gpg >/dev/null \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodegit main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x bullseye main" | tee /etc/apt/sources.list.d/nodesource.list \
     && apt-get update && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
