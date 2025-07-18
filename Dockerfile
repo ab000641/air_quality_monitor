@@ -10,14 +10,25 @@ COPY requirements.txt .
 # 安裝 Python 依賴
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- 新增 Node.js 和 npm 的安裝 ---
-# 安裝 Node.js LTS 版本
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs \
+# --- 修正 Node.js 和 npm 的安裝 ---
+# 更新 apt 來源並安裝必要的工具
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    apt-transport-https \
+    ca-certificates \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# 添加 Node.js 的官方來源並安裝 Node.js LTS 版本
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodesource.gpg >/dev/null \
+    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodegit main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # 安裝 Tailwind CSS 相關依賴
-RUN npm install -g postcss-cli autoprefixer tailwindcss
+# 注意：這裡使用 npm install --global 是為了確保在任何地方都能執行 npx tailwindcss
+RUN npm install --global postcss-cli autoprefixer tailwindcss
 
 # 將應用程式的所有檔案複製到工作目錄
 COPY . .
