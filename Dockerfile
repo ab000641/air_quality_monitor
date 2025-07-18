@@ -10,22 +10,25 @@ COPY requirements.txt .
 # 安裝 Python 依賴
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- 修正 Node.js 和 npm 的安裝 ---
-# 更新 apt 來源並安裝必要的工具
+# --- Node.js 和 npm 的安裝 ---
+# 更新 apt 來源並安裝必要的工具 (這部分應該已經執行過且成功了，但放在一起也沒問題)
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     apt-transport-https \
     ca-certificates \
     software-properties-common \
+    # 移除暫存檔案以節省空間
     && rm -rf /var/lib/apt/lists/*
 
 # 添加 Node.js 的官方來源並安裝 Node.js LTS 版本
-# 注意：NodeSource 倉庫名稱可能會因 Debian 版本略有不同，但 `node_20.x` 通常是兼容的
-RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodesource.gpg >/dev/null \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x bullseye main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# 更正 GPG key 處理方式，確保 apt 能夠正確識別
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x bullseye main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 # 安裝 Tailwind CSS 相關依賴
 # 注意：這裡使用 npm install --global 是為了確保在任何地方都能執行 npx tailwindcss
