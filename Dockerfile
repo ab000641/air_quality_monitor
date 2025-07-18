@@ -1,5 +1,5 @@
 # 使用官方 Python 映像作為基礎映像
-FROM python:3.9-slim-buster
+FROM python:3.9-slim-bullseye
 
 # 設定工作目錄
 WORKDIR /app
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 添加 Node.js 的官方來源並安裝 Node.js LTS 版本
+# 注意：NodeSource 倉庫名稱可能會因 Debian 版本略有不同，但 `node_20.x` 通常是兼容的
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodesource.gpg >/dev/null \
     && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodegit main" | tee /etc/apt/sources.list.d/nodesource.list \
     && apt-get update && apt-get install -y nodejs \
