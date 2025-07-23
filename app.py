@@ -148,12 +148,26 @@ def fetch_and_store_realtime_aqi():
             updated_count = 0
             for record in data['records']:
                 site_id = record.get('siteid')
-                aqi = int(record.get('aqi')) if record.get('aqi') and record.get('aqi').isdigit() else None
+
+                # 使用 helper 函式安全地轉換為整數，處理空字串和非數字情況
+                def safe_int_conversion(value):
+                    try:
+                        return int(value) if value else None
+                    except ValueError:
+                        return None
+                    
+                aqi = safe_int_conversion(record.get('aqi'))
                 status = record.get('status')
-                pm25 = int(record.get('pm2.5')) if record.get('pm2.5') and record.get('pm2.5').isdigit() else None
-                pm10 = int(record.get('pm10')) if record.get('pm10') and record.get('pm10').isdigit() else None
+                pm25 = safe_int_conversion(record.get('pm2.5'))
+                pm10 = safe_int_conversion(record.get('pm10'))
                 publish_time_str = record.get('publishtime')
-                publish_time = datetime.strptime(publish_time_str, '%Y-%m-%d %H:%M') if publish_time_str else None
+                publish_time = None
+                if publish_time_str:
+                    try:
+                        # API 返回的時間格式是 "YYYY/MM/DD HH:MM:SS"
+                        publish_time = datetime.strptime(publish_time_str, '%Y/%m/%d %H:%M:%S') 
+                    except ValueError:
+                        app.logger.warning(f"無法解析時間格式: {publish_time_str}")
 
                 if site_id:
                     station = Station.query.filter_by(site_id=site_id).first()
@@ -164,11 +178,13 @@ def fetch_and_store_realtime_aqi():
                         station.pm10 = pm10
                         station.publish_time = publish_time
                         updated_count += 1
+                    else:
+                        app.logger.warning(f"未能找到 ID 為 {site_id} 的測站，無法更新即時數據。")
             db.session.commit()
             app.logger.info(f"成功更新 {updated_count} 個測站的即時 AQI 數據。")
         else:
-            app.logger.warning("即時 AQI API 返回數據中未找到 'records' 鍵。完整數據: %s", json.dumps(data))
-
+            app.logger.warning("即時 AQI API 返回數據中未找到 'records' 鍵。完整數據: %s", json.dumps(data, indent=2))
+            
     except requests.exceptions.RequestException as e:
         app.logger.error(f"抓取即時 AQI 數據失敗 (RequestException): {e}", exc_info=True)
     except json.JSONDecodeError as e:
