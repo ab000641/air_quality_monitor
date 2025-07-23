@@ -92,11 +92,11 @@ def fetch_and_store_all_stations():
             new_stations_count = 0
             updated_stations_count = 0
             for record in data['records']:
-                station_name = record.get('SiteName')
-                site_id = record.get('SiteId')
-                county = record.get('County')
-                latitude = float(record.get('TWD97Lat')) if record.get('TWD97Lat') else None
-                longitude = float(record.get('TWD97Lon')) if record.get('TWD97Lon') else None
+                station_name = record.get('sitename')
+                site_id = record.get('siteid')
+                county = record.get('county')
+                latitude = float(record.get('twd97lat')) if record.get('twd97lat') else None
+                longitude = float(record.get('twd97lon')) if record.get('twd97lon') else None
 
                 if site_id and station_name:
                     existing_station = Station.query.filter_by(site_id=site_id).first()
@@ -110,7 +110,7 @@ def fetch_and_store_all_stations():
                         )
                         db.session.add(new_station)
                         new_stations_count += 1
-                        # app.logger.debug(f"新增測站: {station_name}") # 如果太多日誌，用 debug 級別
+                        app.logger.debug(f"新增測站: {station_name}") # 用 debug 級別避免刷屏
                     else:
                         existing_station.name = station_name
                         existing_station.county = county
@@ -147,12 +147,12 @@ def fetch_and_store_realtime_aqi():
         if 'records' in data:
             updated_count = 0
             for record in data['records']:
-                site_id = record.get('SiteId')
-                aqi = int(record.get('AQI')) if record.get('AQI') and record.get('AQI').isdigit() else None
-                status = record.get('Status')
-                pm25 = int(record.get('PM2.5')) if record.get('PM2.5') and record.get('PM2.5').isdigit() else None
-                pm10 = int(record.get('PM10')) if record.get('PM10') and record.get('PM10').isdigit() else None
-                publish_time_str = record.get('PublishTime')
+                site_id = record.get('siteid')
+                aqi = int(record.get('aqi')) if record.get('aqi') and record.get('aqi').isdigit() else None
+                status = record.get('status')
+                pm25 = int(record.get('pm2.5')) if record.get('pm2.5') and record.get('pm2.5').isdigit() else None
+                pm10 = int(record.get('pm10')) if record.get('pm10') and record.get('pm10').isdigit() else None
+                publish_time_str = record.get('publishtime')
                 publish_time = datetime.strptime(publish_time_str, '%Y-%m-%d %H:%M') if publish_time_str else None
 
                 if site_id:
