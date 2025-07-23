@@ -1,11 +1,5 @@
 # config.py
-
 import os
-from dotenv import load_dotenv
-
-# 從 .env 檔案載入環境變數
-# 確保這裡可以找到 .env 檔案，如果 config.py 不在專案根目錄，可能需要指定 dotenv_path
-load_dotenv() 
 
 class Config:
     # 從環境變數獲取資料庫相關設定
@@ -16,7 +10,7 @@ class Config:
     # 明確設定 SQLALCHEMY_DATABASE_URI
     # 這裡確保即使 .env 沒載入 DATABASE_URL，也有一個備用值
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
-    
+
     # *** 新增除錯語句 ***
     print(f"DEBUG: SQLALCHEMY_DATABASE_URI in Config: {SQLALCHEMY_DATABASE_URI}")
     # *******************
