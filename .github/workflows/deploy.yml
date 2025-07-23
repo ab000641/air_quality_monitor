@@ -75,7 +75,8 @@ jobs:
           echo "--- Content of generated .env file: ---"
           cat .env
           echo "---------------------------------------"
-          # --- 動態生成 .env 檔案結束 ---
+          # --- 動態生成 .env 檔案結束 --- 
+          
 
           # --- 診斷步驟和憑證權限調整 (保持不變) ---
           echo "--- Diagnostic: Checking Nginx config files on EC2 ---"
