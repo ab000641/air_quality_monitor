@@ -43,8 +43,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d/air_quality_monitor.conf:/etc/nginx/conf.d/air_quality_monitor.conf:ro
       # 修改這裡：直接掛載 Certbot archive 目錄中的實際憑證檔案
-      - /etc/letsencrypt/archive/ab000641.site/fullchain2.pem:/etc/nginx/ssl/live/ab000641.site/fullchain.pem:ro
-      - /etc/letsencrypt/archive/ab000641.site/privkey2.pem:/etc/nginx/ssl/live/ab000641.site/privkey.pem:ro
+      - /etc/letsencrypt/live/ab000641.site/fullchain.pem:/etc/nginx/ssl/live/ab000641.site/fullchain.pem:ro
+      - /etc/letsencrypt/live/ab000641.site/privkey.pem:/etc/nginx/ssl/live/ab000641.site/privkey.pem:ro
       - /etc/letsencrypt/options-ssl-nginx.conf:/etc/nginx/ssl/options-ssl-nginx.conf:ro
       - /etc/letsencrypt/ssl-dhparams.pem:/etc/nginx/ssl/ssl-dhparams.pem:ro
     depends_on:
