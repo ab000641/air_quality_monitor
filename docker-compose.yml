@@ -51,12 +51,7 @@ services:
       web:
         condition: service_started # 確保 web 服務啟動後 Nginx 才啟動
 
-    command: >
-      /bin/sh -c "
-      chmod 644 /etc/nginx/ssl/live/ab000641.site/fullchain.pem &&
-      chmod 600 /etc/nginx/ssl/live/ab000641.site/privkey.pem &&
-      rm -f /etc/nginx/conf.d/default.conf &&
-      nginx -g 'daemon off;'"
+    command: /bin/sh -c "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
 
 volumes:
   db_data:
