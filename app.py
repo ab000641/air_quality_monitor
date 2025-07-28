@@ -270,9 +270,23 @@ def send_aqi_alerts():
 
 @app.route('/')
 def index():
-    # 獲取所有監測站，用於前端下拉選單
+    # 確保在每次請求首頁時，即時 AQI 數據是最新的
+    # 注意：在生產環境中，這種直接在路由中觸發 API 抓取的行為可能會影響性能
+    # 更好的方式是確保排程任務在後台穩定運行，並在前端使用 AJAX 定時刷新數據
+    # 但為了解決目前 "無數據" 的問題，這是一個直接的解決方案
+    with app.app_context(): # 確保在 app context 中執行
+        app.logger.info("首頁請求：觸發即時空氣品質數據更新。")
+        fetch_and_store_realtime_aqi() # 每次訪問首頁時都觸發更新
+
+    # 獲取所有監測站，現在它們應該包含最新的 AQI 數據了
     stations = Station.query.order_by(Station.county, Station.name).all()
     app.logger.info(f"首頁請求：從資料庫獲取到 {len(stations)} 個測站資料。")
+    
+    # 檢查是否有任何測站的 AQI 是 None，幫助調試
+    for station in stations:
+        if station.aqi is None:
+            app.logger.warning(f"測站 {station.name} ({station.site_id}) 的 AQI 仍然為 None。")
+
     return render_template('index.html', stations=stations)
 
 # *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID ***
