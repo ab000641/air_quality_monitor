@@ -39,6 +39,8 @@ jobs:
         context: .
         push: true
         tags: cokehuang/air_quality_monitor:latest # 您的 Docker Hub 用戶名/映像名稱:latest
+        no-cache: true
+        platforms: linux/amd64
 
     - name: Copy deployment files to EC2
       uses: appleboy/scp-action@master # 使用 scp-action 進行檔案傳輸
@@ -76,7 +78,7 @@ jobs:
           cat .env
           echo "---------------------------------------"
           # --- 動態生成 .env 檔案結束 --- 
-          
+
 
           # --- 診斷步驟和憑證權限調整 (保持不變) ---
           echo "--- Diagnostic: Checking Nginx config files on EC2 ---"
