@@ -57,8 +57,20 @@ def init_db():
             app.logger.info("--- 正在首次抓取監測站資料並填充資料庫 ---")
             fetch_and_store_all_stations()
             app.logger.info("--- 監測站資料填充完成 ---")
+
+            # --- 新增：如果首次填充了測站資料，立即抓取並填充即時 AQI 數據 ---
+            app.logger.info("--- 正在首次抓取即時空氣品質數據並填充資料庫 (即時) ---")
+            fetch_and_store_realtime_aqi()
+            app.logger.info("--- 即時空氣品質數據首次填充完成 ---")
+            # -----------------------------------------------------------------
         else:
             app.logger.info("--- 監測站資料已存在，跳過首次抓取 ---")
+            # 如果資料已存在，但即時數據可能過舊，可以選擇在這裡也觸發一次更新
+            # 確保頁面載入時就有最新數據
+            app.logger.info("--- 數據已存在，觸發即時數據更新 ---")
+            fetch_and_store_realtime_aqi()
+            app.logger.info("--- 即時數據更新完成 ---")
+
 
 # --- 定義排程任務 ---
 @scheduler.task('interval', id='fetch_aqi_data_job', hours=1, misfire_grace_time=900)
@@ -184,7 +196,7 @@ def fetch_and_store_realtime_aqi():
             app.logger.info(f"成功更新 {updated_count} 個測站的即時 AQI 數據。")
         else:
             app.logger.warning("即時 AQI API 返回數據中未找到 'records' 鍵。完整數據: %s", json.dumps(data, indent=2))
-            
+
     except requests.exceptions.RequestException as e:
         app.logger.error(f"抓取即時 AQI 數據失敗 (RequestException): {e}", exc_info=True)
     except json.JSONDecodeError as e:
