@@ -270,22 +270,26 @@ def send_aqi_alerts():
 
 @app.route('/')
 def index():
-    # 確保在每次請求首頁時，即時 AQI 數據是最新的
-    # 注意：在生產環境中，這種直接在路由中觸發 API 抓取的行為可能會影響性能
-    # 更好的方式是確保排程任務在後台穩定運行，並在前端使用 AJAX 定時刷新數據
-    # 但為了解決目前 "無數據" 的問題，這是一個直接的解決方案
-    with app.app_context(): # 確保在 app context 中執行
+    with app.app_context():
         app.logger.info("首頁請求：觸發即時空氣品質數據更新。")
-        fetch_and_store_realtime_aqi() # 每次訪問首頁時都觸發更新
+        fetch_and_store_realtime_aqi() # 確保數據被寫入資料庫
 
-    # 獲取所有監測站，現在它們應該包含最新的 AQI 數據了
-    stations = Station.query.order_by(Station.county, Station.name).all()
-    app.logger.info(f"首頁請求：從資料庫獲取到 {len(stations)} 個測站資料。")
-    
-    # 檢查是否有任何測站的 AQI 是 None，幫助調試
-    for station in stations:
-        if station.aqi is None:
-            app.logger.warning(f"測站 {station.name} ({station.site_id}) 的 AQI 仍然為 None。")
+        # 獲取所有監測站
+        stations = Station.query.order_by(Station.county, Station.name).all()
+        app.logger.info(f"首頁請求：從資料庫獲取到 {len(stations)} 個測站資料。")
+        
+        # 關鍵步驟：強制刷新會話中的所有 Station 對象
+        # 這會讓 SQLAlchemy 重新從資料庫中載入這些對象的最新狀態
+        # 這對於確保在同一個請求週期內獲取到最新數據非常重要
+        for station in stations:
+            db.session.refresh(station) # 刷新每個 Station 對象的屬性
+
+        # 檢查是否有任何測站的 AQI 是 None，幫助調試
+        for station in stations:
+            if station.aqi is None:
+                app.logger.warning(f"測站 {station.name} ({station.site_id}) 的 AQI 仍然為 None。")
+            else:
+                app.logger.info(f"測站 {station.name} ({station.site_id}) AQI: {station.aqi}") # 打印出有數據的測站
 
     return render_template('index.html', stations=stations)
 
