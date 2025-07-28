@@ -24,7 +24,7 @@ class Config:
     EPA_STATIONS_API_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_07?api_key={api_key}&limit=1000&format=json"
 
     # 環保署 AQI 即時數據 API 端點
-    EPA_AQI_REALTIME_API_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_13?api_key={api_key}&limit=1000&format=json"
+    EPA_AQI_REALTIME_API_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key={api_key}&limit=1000&format=json"
 
     # APScheduler 設定 (排程器)
     SCHEDULER_API_ENABLED = True
