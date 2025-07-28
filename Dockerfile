@@ -1,5 +1,5 @@
 # 使用官方 Python 3.9 輕量級映像 (保持與之前成功的環境一致性)
-FROM python:3.9-slim-buster
+FROM python:3.9-slim-bookworm
 
 # 設定工作目錄
 WORKDIR /app
