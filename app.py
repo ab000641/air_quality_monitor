@@ -21,6 +21,9 @@ from models import db, Station, LineUser, LineUserStationPreference
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# 初始化資料庫
+db.init_app(app)
+
 # --- 新增：定義台灣縣市的從北到南順序 ---
 COUNTY_ORDER = [
     "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣", "臺中市", "彰化縣", "南投縣",
@@ -42,6 +45,20 @@ COUNTY_TO_REGION = {
 # --- 定義區域的排序順序 (用於前端按鈕顯示和邏輯判斷) ---
 REGION_ORDER = ["北", "中", "南", "東", "離島"] # 您可以調整這個順序
 
+# AQI_STATUS_ORDER 定義
+AQI_STATUS_ORDER = [
+    "良好",
+    "普通",
+    "對敏感族群不健康",
+    "不健康",
+    "非常不健康",
+    "危害",
+    "維護",
+    "無效",
+    "N/A",  # 或 "N/A"
+    "未知"
+]
+
 
 # 設置 Flask session 的密鑰，在生產環境中必須設置並使用複雜的隨機字串
 app.secret_key = os.getenv('SECRET_KEY', 'a_very_secret_key_for_dev')
@@ -61,9 +78,6 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_CHANNEL_SECRET:
     app.logger.warning("警告: LINE_CHANNEL_ACCESS_TOKEN 或 LINE_CHANNEL_SECRET 未設定，LINE Bot 功能將受限。")
     # 在生產環境中，這裡應該直接退出或報錯
-
-# 初始化資料庫
-db.init_app(app)
 
 # 初始化排程器
 scheduler = APScheduler()
@@ -324,9 +338,12 @@ def index():
             if station.aqi is None:
                 app.logger.warning(f"測站 {station.name} ({station.site_id}) 的 AQI 仍然為 None。")
             else:
-                app.logger.info(f"測站 {station.name} ({station.site_id}) AQI: {station.aqi}")
+                app.logger.info(f"測站 {station.name} ({station.site_id}) AQI: {station.aqi}, Status: {station.status}")
 
-    return render_template('index.html', stations=stations)
+
+    return render_template('index.html', stations=stations, 
+                           aqi_status_order=AQI_STATUS_ORDER, 
+                           region_order=REGION_ORDER)
 
 # *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID ***
 @app.route('/manual_line_binding', methods=['GET', 'POST'])
