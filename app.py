@@ -30,6 +30,19 @@ COUNTY_ORDER = [
 # 請確保這裡的縣市名稱與您的 Station 資料庫中儲存的 `county` 欄位的值完全一致。
 # 環境部 API 通常使用「臺」字而非「台」字，因此這裡使用「臺北市」、「臺中市」。
 
+# --- 新增：定義台灣縣市所屬的地理區域 ---
+COUNTY_TO_REGION = {
+    "基隆市": "北", "臺北市": "北", "新北市": "北", "桃園市": "北", "新竹市": "北", "新竹縣": "北", "苗栗縣": "北",
+    "臺中市": "中", "彰化縣": "中", "南投縣": "中", "雲林縣": "中",
+    "嘉義市": "南", "嘉義縣": "南", "臺南市": "南", "高雄市": "南", "屏東縣": "南",
+    "宜蘭縣": "東", "花蓮縣": "東", "臺東縣": "東",
+    "澎湖縣": "離島", "金門縣": "離島", "連江縣": "離島" # 可將離島單獨列出或歸入某個大區
+}
+
+# --- 定義區域的排序順序 (用於前端按鈕顯示和邏輯判斷) ---
+REGION_ORDER = ["北", "中", "南", "東", "離島"] # 您可以調整這個順序
+
+
 # 設置 Flask session 的密鑰，在生產環境中必須設置並使用複雜的隨機字串
 app.secret_key = os.getenv('SECRET_KEY', 'a_very_secret_key_for_dev')
 
@@ -105,9 +118,8 @@ def fetch_and_store_all_stations():
     app.logger.info(f"嘗試從 API 獲取所有監測站資料。URL: {api_url}")
     try:
         response = requests.get(api_url)
-        response.raise_for_status() # 對於 HTTP 錯誤狀態碼 (4xx 或 5xx) 拋出異常
+        response.raise_for_status()
         data = response.json()
-        app.logger.info(f"API 返回數據 (部分): {json.dumps(data, indent=2)[:500]}...") # 打印部分返回數據
 
         if 'records' in data:
             new_stations_count = 0
@@ -119,6 +131,9 @@ def fetch_and_store_all_stations():
                 latitude = float(record.get('twd97lat')) if record.get('twd97lat') else None
                 longitude = float(record.get('twd97lon')) if record.get('twd97lon') else None
 
+                # --- 新增：根據 COUNTY_TO_REGION 獲取區域資訊 ---
+                region = COUNTY_TO_REGION.get(county, "未知區域") # 如果縣市不在映射中，則為未知區域
+
                 if site_id and station_name:
                     existing_station = Station.query.filter_by(site_id=site_id).first()
                     if not existing_station:
@@ -127,18 +142,18 @@ def fetch_and_store_all_stations():
                             name=station_name,
                             county=county,
                             latitude=latitude,
-                            longitude=longitude
+                            longitude=longitude,
+                            region=region # 新增 region 欄位
                         )
                         db.session.add(new_station)
                         new_stations_count += 1
-                        app.logger.debug(f"新增測站: {station_name}") # 用 debug 級別避免刷屏
                     else:
                         existing_station.name = station_name
                         existing_station.county = county
                         existing_station.latitude = latitude
                         existing_station.longitude = longitude
+                        existing_station.region = region # 更新 region 欄位
                         updated_stations_count += 1
-                        # app.logger.debug(f"更新測站: {station_name}") # 如果太多日誌，用 debug 級別
             db.session.commit()
             app.logger.info(f"成功抓取並儲存監測站資料。新增 {new_stations_count} 個，更新 {updated_stations_count} 個。")
         else:
