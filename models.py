@@ -14,6 +14,7 @@ class Station(db.Model):
     latitude = db.Column(db.Float) # 緯度
     longitude = db.Column(db.Float) # 經度
     # 可以添加最新 AQI 數據的欄位，方便查詢和警報判斷
+    region = db.Column(db.String(50)) # 測站所屬的地理區域 (例如 "北", "中", "南", "東", "離島")
     aqi = db.Column(db.Integer)
     status = db.Column(db.String(50))
     pm25 = db.Column(db.Integer)
