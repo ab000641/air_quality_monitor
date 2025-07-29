@@ -59,6 +59,21 @@ AQI_STATUS_ORDER = [
     "未知"
 ]
 
+# 您可能需要一個映射字典，將中文狀態映射到英文或拼音
+# 這樣在模板中生成類別時，就可以使用英文/拼音名稱
+STATUS_TO_CLASS_NAME = {
+    "良好": "good",
+    "普通": "moderate",
+    "對敏感族群不健康": "unhealthy-for-sensitive",
+    "不健康": "unhealthy",
+    "非常不健康": "very-unhealthy",
+    "危害": "hazardous",
+    "維護": "maintenance",
+    "無效": "invalid",
+    "N/A": "na", # 注意這裡轉為小寫 'na'
+    "未知": "unknown"
+}
+
 
 # 設置 Flask session 的密鑰，在生產環境中必須設置並使用複雜的隨機字串
 app.secret_key = os.getenv('SECRET_KEY', 'a_very_secret_key_for_dev')
@@ -343,7 +358,8 @@ def index():
 
     return render_template('index.html', stations=stations, 
                            aqi_status_order=AQI_STATUS_ORDER, 
-                           region_order=REGION_ORDER)
+                           region_order=REGION_ORDER,
+                           status_to_class_name=STATUS_TO_CLASS_NAME)
 
 # *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID ***
 @app.route('/manual_line_binding', methods=['GET', 'POST'])
