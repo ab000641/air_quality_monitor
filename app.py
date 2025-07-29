@@ -21,6 +21,15 @@ from models import db, Station, LineUser, LineUserStationPreference
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# --- 新增：定義台灣縣市的從北到南順序 ---
+COUNTY_ORDER = [
+    "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣", "臺中市", "彰化縣", "南投縣",
+    "雲林縣", "嘉義市", "嘉義縣", "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣",
+    "金門縣", "連江縣"
+]
+# 請確保這裡的縣市名稱與您的 Station 資料庫中儲存的 `county` 欄位的值完全一致。
+# 環境部 API 通常使用「臺」字而非「台」字，因此這裡使用「臺北市」、「臺中市」。
+
 # 設置 Flask session 的密鑰，在生產環境中必須設置並使用複雜的隨機字串
 app.secret_key = os.getenv('SECRET_KEY', 'a_very_secret_key_for_dev')
 
@@ -274,22 +283,33 @@ def index():
         app.logger.info("首頁請求：觸發即時空氣品質數據更新。")
         fetch_and_store_realtime_aqi() # 確保數據被寫入資料庫
 
-        # 獲取所有監測站
-        stations = Station.query.order_by(Station.county, Station.name).all()
-        app.logger.info(f"首頁請求：從資料庫獲取到 {len(stations)} 個測站資料。")
-        
+        # 獲取所有監測站 (不依縣市排序，因為我們要進行自定義排序)
+        # 這裡可以根據 Station.name 進行初步排序，以便在同一縣市內有穩定順序
+        all_stations = Station.query.order_by(Station.name).all() 
+        app.logger.info(f"首頁請求：從資料庫獲取到 {len(all_stations)} 個測站資料。")
+
         # 關鍵步驟：強制刷新會話中的所有 Station 對象
-        # 這會讓 SQLAlchemy 重新從資料庫中載入這些對象的最新狀態
-        # 這對於確保在同一個請求週期內獲取到最新數據非常重要
-        for station in stations:
+        for station in all_stations:
             db.session.refresh(station) # 刷新每個 Station 對象的屬性
 
-        # 檢查是否有任何測站的 AQI 是 None，幫助調試
+        # 根據 COUNTY_ORDER 進行自定義排序
+        # 如果某個測站的縣市不在 COUNTY_ORDER 列表中，將其排在最後
+        def get_county_order_key(station):
+            try:
+                # 嘗試獲取縣市在 COUNTY_ORDER 中的索引
+                return COUNTY_ORDER.index(station.county)
+            except ValueError:
+                # 如果縣市不在列表中，給它一個很高的索引，讓它排在最後
+                return len(COUNTY_ORDER)
+
+        stations = sorted(all_stations, key=get_county_order_key)
+
+        # 檢查是否有任何測站的 AQI 是 None，幫助調試 (保持不變，因為這行很有用)
         for station in stations:
             if station.aqi is None:
                 app.logger.warning(f"測站 {station.name} ({station.site_id}) 的 AQI 仍然為 None。")
             else:
-                app.logger.info(f"測站 {station.name} ({station.site_id}) AQI: {station.aqi}") # 打印出有數據的測站
+                app.logger.info(f"測站 {station.name} ({station.site_id}) AQI: {station.aqi}")
 
     return render_template('index.html', stations=stations)
 
