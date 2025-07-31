@@ -56,7 +56,7 @@
                          data-status="{{ station.status if station.status else 'N/A' }}"
                          data-region="{{ station.region if station.region else '未知區域' }}">
                         <div>
-                            <h3 class="text-xl font-bold text-gray-800 mb-2">{{ station.name }} ({{ station.site_id }})</h3>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">{{ station.name }}</h3>
                             <p class="text-gray-600 mb-3">縣市: {{ station.county if station.county else 'N/A' }}</p>
 
                             {% if station.aqi is not none %}
