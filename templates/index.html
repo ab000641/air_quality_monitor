@@ -11,8 +11,6 @@
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        /* 這裡可以移除任何關於 .filter-button.active 的內聯樣式 */
-        /* 因為我們將完全依賴 JS 來切換 Tailwind 類別 */
     </style>
 </head>
 <body class="bg-gray-100">
@@ -23,11 +21,9 @@
         <div class="flex flex-col md:flex-row justify-center gap-4 mb-6">
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm">
                 <span class="font-semibold text-gray-700 mr-2">空品狀態:</span>
-                {# 移除 active: 變體，將 active 類別作為初始選中標誌 #}
                 <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="status" data-filter-value="all">全部</button>
                 {% for status in aqi_status_order %}
                     {% if status not in ['N/A', '維護', '無效', '未知'] %}
-                        {# 移除 active: 變體 #}
                         <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="status" data-filter-value="{{ status }}">{{ status }}</button>
                     {% endif %}
                 {% endfor %}
@@ -35,10 +31,8 @@
 
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm mt-4 md:mt-0">
                 <span class="font-semibold text-gray-700 mr-2">地區:</span>
-                {# 移除 active: 變體，將 active 類別作為初始選中標誌 #}
                 <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="region" data-filter-value="all">全部</button>
                 {% for region in region_order %}
-                    {# 移除 active: 變體 #}
                     <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="region" data-filter-value="{{ region }}">{{ region }}</button>
                 {% endfor %}
             </div>
@@ -46,10 +40,13 @@
 
         {% if stations %}
             <div id="stations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {# 這裡的內容將被 JavaScript 動態替換或更新 #}
+                {# 為了首次載入時有內容，可以保留原始的 Flask 渲染部分 #}
                 {% for station in stations %}
                     {% set status_class_name = status_to_class_name.get(station.status, 'unknown') %} 
 
                     <div class="aqi-card p-4 flex flex-col justify-between" 
+                         data-station-id="{{ station.id }}" {# 新增：用於 JavaScript 識別和更新的 ID #}
                          data-status="{{ station.status if station.status else 'N/A' }}"
                          data-region="{{ station.region if station.region else '未知區域' }}">
                         <div>
@@ -60,24 +57,24 @@
                                 <div class="flex flex-wrap items-center -mx-2">
                                     <div class="w-full md:w-1/2 lg:w-1/3 pr-2 mb-3 md:mb-0">
                                         <div class="text-gray-600 text-sm">AQI:</div>
-                                        <div class="text-4xl font-extrabold mt-1 text-{{ status_class_name }}-aqi"> 
+                                        <div class="text-4xl font-extrabold mt-1 text-{{ status_class_name }}-aqi aqi-value"> 
                                             {{ station.aqi }}
                                         </div>
-                                        <div class="text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white bg-{{ status_class_name }}-status"> 
+                                        <div class="text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white bg-{{ status_class_name }}-status aqi-status-label"> 
                                             {{ station.status if station.status else 'N/A' }}
                                         </div>
                                     </div>
                                     <div class="w-full md:w-1/2 lg:w-2/3 pl-2 mb-3 md:mb-0">
                                         <div class="text-gray-600 text-sm">詳細數據:</div>
-                                        <div class="mt-1 text-lg">PM2.5: <span class="font-medium">{{ station.pm25 if station.pm25 is not none else 'N/A' }}</span></div>
-                                        <div class="mt-1 text-lg">PM10: <span class="font-medium">{{ station.pm10 if station.pm10 is not none else 'N/A' }}</span></div>
+                                        <div class="mt-1 text-lg">PM2.5: <span class="font-medium pm25-value">{{ station.pm25 if station.pm25 is not none else 'N/A' }}</span></div>
+                                        <div class="mt-1 text-lg">PM10: <span class="font-medium pm10-value">{{ station.pm10 if station.pm10 is not none else 'N/A' }}</span></div>
                                     </div>
                                 </div>
                                 <div class="w-full text-sm text-gray-600 border-t border-dashed border-gray-200 pt-3 mt-3">
-                                    最後更新時間: <span class="font-medium">{{ station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A' }}</span>
+                                    最後更新時間: <span class="font-medium publish-time">{{ station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A' }}</span>
                                 </div>
                             {% else %}
-                                <div class="w-full text-center text-gray-500 italic p-4 bg-gray-100 rounded-md">目前無即時數據。</div>
+                                <div class="w-full text-center text-gray-500 italic p-4 bg-gray-100 rounded-md no-data-message">目前無即時數據。</div>
                             {% endif %}
                         </div>
                     </div>
@@ -93,7 +90,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const filterButtons = document.querySelectorAll('.filter-button');
             const stationsContainer = document.getElementById('stations-container');
-            const aqiCards = stationsContainer ? stationsContainer.querySelectorAll('.aqi-card') : [];
+            let aqiCards = stationsContainer ? stationsContainer.querySelectorAll('.aqi-card') : []; // 確保這裡是 let
 
             let currentFilters = {
                 status: 'all',
@@ -116,18 +113,17 @@
                 });
             }
 
-            // 新增一個函式來更新按鈕的視覺狀態
             function updateButtonVisuals() {
                 filterButtons.forEach(button => {
                     const filterType = button.dataset.filterType;
                     const filterValue = button.dataset.filterValue;
 
                     if (currentFilters[filterType] === filterValue) {
-                        button.classList.add('bg-blue-500', 'text-white'); // 選中狀態
-                        button.classList.remove('bg-gray-200', 'text-gray-700'); // 移除非選中狀態樣式
+                        button.classList.add('bg-blue-500', 'text-white');
+                        button.classList.remove('bg-gray-200', 'text-gray-700');
                     } else {
-                        button.classList.remove('bg-blue-500', 'text-white'); // 移除選中狀態樣式
-                        button.classList.add('bg-gray-200', 'text-gray-700'); // 添加非選中狀態樣式
+                        button.classList.remove('bg-blue-500', 'text-white');
+                        button.classList.add('bg-gray-200', 'text-gray-700');
                     }
                 });
             }
@@ -137,20 +133,94 @@
                     const filterType = this.dataset.filterType;
                     const filterValue = this.dataset.filterValue;
 
-                    // 更新篩選狀態
                     currentFilters[filterType] = filterValue;
                     
-                    // 應用篩選
                     applyFilters();
-                    
-                    // 更新按鈕視覺狀態
                     updateButtonVisuals();
                 });
             });
 
+            // 新增：動態更新 AQI 數據的函式
+            async function fetchAndUpdateAqiData() {
+                try {
+                    const response = await fetch('/api/aqi_data'); // 請求新的 API 端點
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const newAqiData = await response.json();
+
+                    newAqiData.forEach(newStationData => {
+                        const cardElement = stationsContainer.querySelector(`[data-station-id="${newStationData.id}"]`);
+                        
+                        if (cardElement) {
+                            // 更新卡片的 data-status 和 data-region
+                            cardElement.dataset.status = newStationData.status || 'N/A';
+                            cardElement.dataset.region = newStationData.region || '未知區域';
+
+                            // 找到並更新對應的元素
+                            const aqiValueElement = cardElement.querySelector('.aqi-value');
+                            const aqiStatusLabelElement = cardElement.querySelector('.aqi-status-label');
+                            const pm25ValueElement = cardElement.querySelector('.pm25-value');
+                            const pm10ValueElement = cardElement.querySelector('.pm10-value');
+                            const publishTimeElement = cardElement.querySelector('.publish-time');
+                            const noDataMessage = cardElement.querySelector('.no-data-message');
+
+                            if (newStationData.aqi !== null) {
+                                if (noDataMessage) noDataMessage.style.display = 'none'; // 隱藏無數據訊息
+
+                                if (aqiValueElement) aqiValueElement.textContent = newStationData.aqi;
+                                if (aqiStatusLabelElement) {
+                                    aqiStatusLabelElement.textContent = newStationData.status || 'N/A';
+                                    // 移除所有舊的背景和文字顏色類別 (基於您的 `STATUS_TO_CLASS_NAME` 邏輯)
+                                    // 確保您在 `tailwind.config.js` 的 safelist 中包含了所有這些類別
+                                    const oldClasses = Array.from(aqiStatusLabelElement.classList).filter(cls => 
+                                        cls.startsWith('bg-') && cls.endsWith('-status') || 
+                                        cls.startsWith('text-') && cls.endsWith('-aqi')
+                                    );
+                                    aqiStatusLabelElement.classList.remove(...oldClasses);
+                                    aqiValueElement.classList.remove(...oldClasses); // AQI 值也移除舊的文字顏色
+
+                                    // 添加新的背景和文字顏色類別
+                                    aqiStatusLabelElement.classList.add(`bg-${newStationData.status_class_name}-status`);
+                                    aqiValueElement.classList.add(`text-${newStationData.status_class_name}-aqi`);
+                                }
+                                if (pm25ValueElement) pm25ValueElement.textContent = newStationData.pm25 !== null ? newStationData.pm25 : 'N/A';
+                                if (pm10ValueElement) pm10ValueElement.textContent = newStationData.pm10 !== null ? newStationData.pm10 : 'N/A';
+                                if (publishTimeElement) publishTimeElement.textContent = newStationData.publish_time;
+
+                            } else {
+                                // 如果數據為 null，顯示無數據訊息
+                                if (noDataMessage) noDataMessage.style.display = '';
+                                if (aqiValueElement) aqiValueElement.textContent = '';
+                                if (aqiStatusLabelElement) {
+                                    aqiStatusLabelElement.textContent = '';
+                                    aqiStatusLabelElement.className = 'text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white'; // 清除顏色類別
+                                }
+                                if (pm25ValueElement) pm25ValueElement.textContent = 'N/A';
+                                if (pm10ValueElement) pm10ValueElement.textContent = 'N/A';
+                                if (publishTimeElement) publishTimeElement.textContent = 'N/A';
+                            }
+                        }
+                    });
+                    applyFilters(); // 更新數據後重新應用篩選
+
+                } catch (error) {
+                    console.error("Error fetching AQI data:", error);
+                }
+            }
+
             // 初始化時應用篩選和按鈕視覺狀態
             applyFilters();
-            updateButtonVisuals(); // 確保頁面載入時正確顯示初始選中的按鈕樣式
+            updateButtonVisuals();
+
+            // 首次載入後立即獲取一次數據 (可選，如果數據總是最新可以省略)
+            // fetchAndUpdateAqiData();
+
+            // 每 5 分鐘 (300000 毫秒) 自動刷新一次數據
+            // 請根據您的需求調整刷新頻率，注意不要對 API 造成過大負載
+            // 環境部 API 通常每小時更新一次，所以設定為 5-30 分鐘即可
+            const refreshInterval = 5 * 60 * 1000; // 5 分鐘
+            setInterval(fetchAndUpdateAqiData, refreshInterval);
         });
     </script>
 </body>

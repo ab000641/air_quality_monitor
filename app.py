@@ -5,7 +5,7 @@ import hmac
 import hashlib
 import logging # 新增：導入 logging 模組
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify
 from flask_apscheduler import APScheduler
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
@@ -360,6 +360,52 @@ def index():
                            aqi_status_order=AQI_STATUS_ORDER, 
                            region_order=REGION_ORDER,
                            status_to_class_name=STATUS_TO_CLASS_NAME)
+
+@app.route('/api/aqi_data')
+def aqi_data_api():
+    """
+    提供即時空氣品質數據的 JSON API 端點。
+    數據將根據 COUNTY_ORDER 和 station.name 排序。
+    """
+    with app.app_context():
+        # 確保數據是最新，觸發一次更新 (可選，如果定時任務夠頻繁且確保數據最新，可以省略)
+        # fetch_and_store_realtime_aqi() # 如果每小時的排程已經足夠，這裡可不執行
+
+        all_stations = Station.query.order_by(Station.name).all()
+
+        def get_county_order_key(station):
+            try:
+                return COUNTY_ORDER.index(station.county)
+            except ValueError:
+                return len(COUNTY_ORDER)
+
+        stations = sorted(all_stations, key=get_county_order_key)
+
+        # 準備要返回的 JSON 數據
+        # 為了避免序列化問題和傳輸不必要的數據，只返回前端需要的部分
+        data = []
+        for station in stations:
+            # 確保獲取最新數據，特別是對於 `session.refresh` 後
+            db.session.refresh(station) # 確保獲取 Station 對象的最新屬性
+
+            # 獲取對應的英文類別名稱
+            status_class_name = STATUS_TO_CLASS_NAME.get(station.status, 'unknown')
+
+            data.append({
+                'id': station.id,
+                'site_id': station.site_id,
+                'name': station.name,
+                'county': station.county,
+                'region': station.region,
+                'aqi': station.aqi,
+                'status': station.status,
+                'pm25': station.pm25,
+                'pm10': station.pm10,
+                'publish_time': station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A',
+                'status_class_name': status_class_name # 將這個也傳遞給前端，方便生成類別
+            })
+        
+        return jsonify(data) # 使用 Flask 的 jsonify 函數返回 JSON 響應
 
 # *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID ***
 @app.route('/manual_line_binding', methods=['GET', 'POST'])
