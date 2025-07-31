@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>台灣空氣品質監測</title>
-    <link href="/static/output.css" rel="stylesheet"> {# 假設您已經通過 PostCSS/TailwindCLI 生成了 output.css #}
+    <link href="/static/output.css" rel="stylesheet">
     <style>
-        /* 您自定義的樣式 (保留少量無法用 Tailwind 類別直接實現的) */
         .aqi-card {
             background-color: #ffffff;
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        /* 這裡不再需要 filter-button.active 的內聯樣式 */
+        /* 這裡可以移除任何關於 .filter-button.active 的內聯樣式 */
+        /* 因為我們將完全依賴 JS 來切換 Tailwind 類別 */
     </style>
 </head>
 <body class="bg-gray-100">
@@ -23,23 +23,23 @@
         <div class="flex flex-col md:flex-row justify-center gap-4 mb-6">
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm">
                 <span class="font-semibold text-gray-700 mr-2">空品狀態:</span>
-                {# 注意這裡修改了第一個按鈕的類別 #}
-                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white active" data-filter-type="status" data-filter-value="all">全部</button>
+                {# 移除 active: 變體，將 active 類別作為初始選中標誌 #}
+                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="status" data-filter-value="all">全部</button>
                 {% for status in aqi_status_order %}
                     {% if status not in ['N/A', '維護', '無效', '未知'] %}
-                        {# 注意這裡修改了動態生成按鈕的類別 #}
-                        <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white" data-filter-type="status" data-filter-value="{{ status }}">{{ status }}</button>
+                        {# 移除 active: 變體 #}
+                        <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="status" data-filter-value="{{ status }}">{{ status }}</button>
                     {% endif %}
                 {% endfor %}
             </div>
 
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm mt-4 md:mt-0">
                 <span class="font-semibold text-gray-700 mr-2">地區:</span>
-                {# 注意這裡修改了第一個按鈕的類別 #}
-                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white active" data-filter-type="region" data-filter-value="all">全部</button>
+                {# 移除 active: 變體，將 active 類別作為初始選中標誌 #}
+                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="region" data-filter-value="all">全部</button>
                 {% for region in region_order %}
-                    {# 注意這裡修改了動態生成按鈕的類別 #}
-                    <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white" data-filter-type="region" data-filter-value="{{ region }}">{{ region }}</button>
+                    {# 移除 active: 變體 #}
+                    <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="region" data-filter-value="{{ region }}">{{ region }}</button>
                 {% endfor %}
             </div>
         </div>
@@ -47,7 +47,6 @@
         {% if stations %}
             <div id="stations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {% for station in stations %}
-                    {# 獲取對應的英文類別名稱，如果沒有找到，則使用 'unknown' #}
                     {% set status_class_name = status_to_class_name.get(station.status, 'unknown') %} 
 
                     <div class="aqi-card p-4 flex flex-col justify-between" 
@@ -61,11 +60,9 @@
                                 <div class="flex flex-wrap items-center -mx-2">
                                     <div class="w-full md:w-1/2 lg:w-1/3 pr-2 mb-3 md:mb-0">
                                         <div class="text-gray-600 text-sm">AQI:</div>
-                                        {# 使用新的英文類別名稱 #}
                                         <div class="text-4xl font-extrabold mt-1 text-{{ status_class_name }}-aqi"> 
                                             {{ station.aqi }}
                                         </div>
-                                        {# 使用新的英文類別名稱 #}
                                         <div class="text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white bg-{{ status_class_name }}-status"> 
                                             {{ station.status if station.status else 'N/A' }}
                                         </div>
@@ -93,7 +90,6 @@
     </div>
 
     <script>
-        // JavaScript 篩選邏輯 (保持不變)
         document.addEventListener('DOMContentLoaded', function() {
             const filterButtons = document.querySelectorAll('.filter-button');
             const stationsContainer = document.getElementById('stations-container');
@@ -120,26 +116,41 @@
                 });
             }
 
+            // 新增一個函式來更新按鈕的視覺狀態
+            function updateButtonVisuals() {
+                filterButtons.forEach(button => {
+                    const filterType = button.dataset.filterType;
+                    const filterValue = button.dataset.filterValue;
+
+                    if (currentFilters[filterType] === filterValue) {
+                        button.classList.add('bg-blue-500', 'text-white'); // 選中狀態
+                        button.classList.remove('bg-gray-200', 'text-gray-700'); // 移除非選中狀態樣式
+                    } else {
+                        button.classList.remove('bg-blue-500', 'text-white'); // 移除選中狀態樣式
+                        button.classList.add('bg-gray-200', 'text-gray-700'); // 添加非選中狀態樣式
+                    }
+                });
+            }
+
             filterButtons.forEach(button => {
                 button.addEventListener('click', function() {
                     const filterType = this.dataset.filterType;
                     const filterValue = this.dataset.filterValue;
 
-                    document.querySelectorAll(`.filter-button[data-filter-type="${filterType}"]`).forEach(btn => {
-                        btn.classList.remove('active');
-                        // 移除 active: 相關的類別 (如果有的話，這通常不是最佳實踐，但作為除錯或兼容性考慮)
-                        btn.classList.remove('bg-blue-500', 'text-white'); // 移除直接的顏色類別
-                    });
-                    this.classList.add('active');
-                    // 添加 active: 相關的類別
-                    this.classList.add('bg-blue-500', 'text-white'); // 添加直接的顏色類別
-
+                    // 更新篩選狀態
                     currentFilters[filterType] = filterValue;
+                    
+                    // 應用篩選
                     applyFilters();
+                    
+                    // 更新按鈕視覺狀態
+                    updateButtonVisuals();
                 });
             });
 
+            // 初始化時應用篩選和按鈕視覺狀態
             applyFilters();
+            updateButtonVisuals(); // 確保頁面載入時正確顯示初始選中的按鈕樣式
         });
     </script>
 </body>
