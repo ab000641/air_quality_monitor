@@ -12,12 +12,7 @@
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        /* .filter-button.active 的樣式可以從 Tailwind 的 safelist 中生成 */
-        /*
-           這些顏色定義將不再需要在這裡，因為它們會從 Tailwind 的 JIT 或 safelist 中生成。
-           如果您仍然使用傳統的 Tailwind CLI，可能需要確保這些類別在您的 HTML 中被檢測到，
-           或在 tailwind.config.js 的 safelist 中明確列出。
-        */
+        /* 這裡不再需要 filter-button.active 的內聯樣式 */
     </style>
 </head>
 <body class="bg-gray-100">
@@ -28,20 +23,23 @@
         <div class="flex flex-col md:flex-row justify-center gap-4 mb-6">
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm">
                 <span class="font-semibold text-gray-700 mr-2">空品狀態:</span>
-                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="status" data-filter-value="all">全部</button>
+                {# 注意這裡修改了第一個按鈕的類別 #}
+                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white active" data-filter-type="status" data-filter-value="all">全部</button>
                 {% for status in aqi_status_order %}
-                    {% if status not in ['N/A', '維護', '無效', '未知'] %} {# 排除不需要按鈕的狀態 #}
-                        {# 注意：這裡的 data-filter-value 可以保持中文，因為這是 JS 內部使用，不影響 Tailwind 類別生成 #}
-                        <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="status" data-filter-value="{{ status }}">{{ status }}</button>
+                    {% if status not in ['N/A', '維護', '無效', '未知'] %}
+                        {# 注意這裡修改了動態生成按鈕的類別 #}
+                        <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white" data-filter-type="status" data-filter-value="{{ status }}">{{ status }}</button>
                     {% endif %}
                 {% endfor %}
             </div>
 
             <div class="flex flex-wrap justify-center gap-2 p-2 bg-white rounded-lg shadow-sm mt-4 md:mt-0">
                 <span class="font-semibold text-gray-700 mr-2">地區:</span>
-                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active" data-filter-type="region" data-filter-value="all">全部</button>
+                {# 注意這裡修改了第一個按鈕的類別 #}
+                <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white active" data-filter-type="region" data-filter-value="all">全部</button>
                 {% for region in region_order %}
-                    <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300" data-filter-type="region" data-filter-value="{{ region }}">{{ region }}</button>
+                    {# 注意這裡修改了動態生成按鈕的類別 #}
+                    <button class="filter-button px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-blue-500 active:text-white" data-filter-type="region" data-filter-value="{{ region }}">{{ region }}</button>
                 {% endfor %}
             </div>
         </div>
@@ -129,8 +127,12 @@
 
                     document.querySelectorAll(`.filter-button[data-filter-type="${filterType}"]`).forEach(btn => {
                         btn.classList.remove('active');
+                        // 移除 active: 相關的類別 (如果有的話，這通常不是最佳實踐，但作為除錯或兼容性考慮)
+                        btn.classList.remove('bg-blue-500', 'text-white'); // 移除直接的顏色類別
                     });
                     this.classList.add('active');
+                    // 添加 active: 相關的類別
+                    this.classList.add('bg-blue-500', 'text-white'); // 添加直接的顏色類別
 
                     currentFilters[filterType] = filterValue;
                     applyFilters();
