@@ -109,22 +109,18 @@ def init_db():
             fetch_and_store_all_stations()
             app.logger.info("--- 監測站資料填充完成 ---")
 
-            # --- 新增：如果首次填充了測站資料，立即抓取並填充即時 AQI 數據 ---
+            # --- 僅在首次填充測站資料後，立即抓取並填充即時 AQI 數據 ---
             app.logger.info("--- 正在首次抓取即時空氣品質數據並填充資料庫 (即時) ---")
             fetch_and_store_realtime_aqi()
             app.logger.info("--- 即時空氣品質數據首次填充完成 ---")
             # -----------------------------------------------------------------
         else:
-            app.logger.info("--- 監測站資料已存在，跳過首次抓取 ---")
-            # 如果資料已存在，但即時數據可能過舊，可以選擇在這裡也觸發一次更新
-            # 確保頁面載入時就有最新數據
-            app.logger.info("--- 數據已存在，觸發即時數據更新 ---")
-            fetch_and_store_realtime_aqi()
-            app.logger.info("--- 即時數據更新完成 ---")
+            app.logger.info("--- 監測站資料已存在，跳過首次抓取與數據填充。排程器將處理後續更新。---")
 
 
 # --- 定義排程任務 ---
-@scheduler.task('interval', id='fetch_aqi_data_job', hours=1, misfire_grace_time=900)
+# 修改點 1: 將 'interval' 改為 'cron'，並設定 minute=0 讓它在每個整點執行
+@scheduler.task('cron', id='fetch_aqi_data_job', minute=0, misfire_grace_time=900)
 def fetch_aqi_data_job():
     with app.app_context():
         app.logger.info(f"--- 排程任務: 正在抓取即時空氣品質數據 ({datetime.now()}) ---")
@@ -138,7 +134,7 @@ def check_and_send_alerts_job():
         send_aqi_alerts()
         app.logger.info("--- 排程任務: 空氣品質警報檢查完成 ---")
 
-# --- API 互動函式 ---
+# --- API 互動函式 (此部分保持不變) ---
 def fetch_and_store_all_stations():
     """
     從環保署 API 抓取所有監測站列表並儲存到資料庫
@@ -259,7 +255,7 @@ def fetch_and_store_realtime_aqi():
         app.logger.error(f"處理即時 AQI 數據時發生錯誤: {e}", exc_info=True)
 
 
-# --- LINE Messaging API 相關函式 ---
+# --- LINE Messaging API 相關函式 (此部分保持不變) ---
 
 def send_line_message(line_user_id, message_text):
     """
@@ -324,8 +320,9 @@ def send_aqi_alerts():
 @app.route('/')
 def index():
     with app.app_context():
-        app.logger.info("首頁請求：觸發即時空氣品質數據更新。")
-        fetch_and_store_realtime_aqi() # 確保數據被寫入資料庫
+        # 修改點 2: 移除每次首頁請求都觸發數據更新的行為，讓排程器專職負責
+        # app.logger.info("首頁請求：觸發即時空氣品質數據更新。")
+        # fetch_and_store_realtime_aqi() # <-- 移除這行
 
         # 獲取所有監測站 (不依縣市排序，因為我們要進行自定義排序)
         # 這裡可以根據 Station.name 進行初步排序，以便在同一縣市內有穩定順序
@@ -368,8 +365,8 @@ def aqi_data_api():
     數據將根據 COUNTY_ORDER 和 station.name 排序。
     """
     with app.app_context():
-        # 確保數據是最新，觸發一次更新 (可選，如果定時任務夠頻繁且確保數據最新，可以省略)
-        # fetch_and_store_realtime_aqi() # 如果每小時的排程已經足夠，這裡可不執行
+        # 如果每小時的排程已經足夠，這裡可不執行 (保持不變，已註解掉)
+        # fetch_and_store_realtime_aqi() 
 
         all_stations = Station.query.order_by(Station.name).all()
 
@@ -407,7 +404,7 @@ def aqi_data_api():
         
         return jsonify(data) # 使用 Flask 的 jsonify 函數返回 JSON 響應
 
-# *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID ***
+# *** 手動綁定路由可以作為備用，但主要將透過 Webhook 獲取用戶 ID (此部分保持不變) ***
 @app.route('/manual_line_binding', methods=['GET', 'POST'])
 def manual_line_binding():
     if request.method == 'POST':
@@ -480,7 +477,7 @@ def manual_line_binding():
     return render_template('manual_line_binding.html', stations=stations)
 
 
-# --- 新增 LINE Webhook 路由 ---
+# --- 新增 LINE Webhook 路由 (此部分保持不變) ---
 @app.route("/webhook/line", methods=['POST'])
 def callback():
     # 獲取 X-Line-Signature 頭部的值
@@ -502,7 +499,7 @@ def callback():
 
     return 'OK' # 必須返回 'OK' 給 LINE
 
-# --- 定義處理各種 LINE 事件的函式 ---
+# --- 定義處理各種 LINE 事件的函式 (此部分保持不變) ---
 @handler.add(FollowEvent)
 def handle_follow(event):
     # 當用戶將 Bot 加為好友時觸發
@@ -563,7 +560,7 @@ def handle_non_text_message(event):
     #     TextMessage(text="抱歉，我目前只能處理文字訊息。")
     # )
 
-# --- 處理 Unfollow 事件 (用戶封鎖 Bot) ---
+# --- 處理 Unfollow 事件 (用戶封鎖 Bot) (此部分保持不變) ---
 @handler.add(MessageEvent, message=None) # 不指定 message 類型，以便處理所有事件
 def handle_unfollow(event):
     if event.type == 'unfollow': # 判斷是否為 unfollow 事件
@@ -582,7 +579,7 @@ with app.app_context():
     init_db()
     app.logger.info("資料庫初始化及表格創建已執行。")
 
-# --- 運行應用程式 ---
+# --- 運行應用程式 (此部分保持不變) ---
 if __name__ == '__main__':
     # 在生產環境中，應使用 Gunicorn 或其他 WSGI 伺服器
     # 注意: 在本地調試時，如果您要測試 Webhook，需要使用 ngrok 等工具將本地服務暴露到公網
