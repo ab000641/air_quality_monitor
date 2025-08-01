@@ -120,7 +120,7 @@ def init_db():
 
 # --- 定義排程任務 ---
 # 修改點 1: 將 'interval' 改為 'cron'，並設定 minute=0 讓它在每個整點執行
-@scheduler.task('cron', id='fetch_aqi_data_job', minute=0, misfire_grace_time=900)
+@scheduler.task('cron', id='fetch_aqi_data_job', minute=5, misfire_grace_time=900)
 def fetch_aqi_data_job():
     with app.app_context():
         app.logger.info(f"--- 排程任務: 正在抓取即時空氣品質數據 ({datetime.now()}) ---")
