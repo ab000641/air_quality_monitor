@@ -16,6 +16,14 @@ services:
       timeout: 5s
       retries: 5
 
+  redis: # <-- 新增 Redis 服務 (RQ 佇列的後端)
+    image: redis:7-alpine
+    container_name: air_quality_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes # 啟用 AOF 持久化，以防重啟丟失數據
+    volumes:
+      - redis_data:/data # 持久化 Redis 數據到具名卷
+
   web:
     image: cokehuang/air_quality_monitor:latest
     container_name: air_quality_web
@@ -26,10 +34,33 @@ services:
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
       LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
       SECRET_KEY: ${SECRET_KEY}
+      # 新增 Redis URL，供 Flask 應用程式連接 RQ
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started # 等待 Redis 服務啟動
     command: gunicorn --bind 0.0.0.0:5001 app:app # 容器內部仍然監聽 5001
+
+  worker: # <-- 新增 RQ Worker 服務 (執行背景任務)
+    image: cokehuang/air_quality_monitor:latest # 使用與 web 服務相同的映像
+    container_name: air_quality_worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      EPA_AQI_API_KEY: ${EPA_AQI_API_KEY}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/0 # Worker 也需要 Redis URL
+    depends_on:
+      db:
+        condition: service_healthy # 等待 DB 服務健康
+      redis:
+        condition: service_started # 等待 Redis 服務啟動
+    # 啟動 RQ worker，監聽 'aqi_queue' 佇列。請確保 app.py 中使用的佇列名稱與此一致。
+    command: rq worker aqi_queue
 
   nginx: # <--- 新增 Nginx 服務
     image: nginx:latest # 使用官方 Nginx 映像檔
@@ -55,3 +86,4 @@ services:
 
 volumes:
   db_data:
+  redis_data: # <--- 新增 Redis 的數據卷

@@ -17,6 +17,11 @@ from linebot.models import MessageEvent, TextMessage, FollowEvent, LocationMessa
 from config import Config
 from models import db, Station, LineUser, LineUserStationPreference
 from utils.distance import calculate_distance
+from redis import Redis
+from rq import Queue
+
+redis_connection = Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
+aqi_queue = Queue('aqi_queue', connection=redis_connection) # 確保這裡的佇列名稱是 'aqi_queue'
 
 # 創建 Flask 應用程式實例
 app = Flask(__name__)
