@@ -7,3 +7,5 @@ Flask-APScheduler
 line-bot-sdk
 alembic
 gunicorn
+rq==1.17.0 
+redis      
