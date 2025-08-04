@@ -40,6 +40,8 @@ class LineUser(db.Model):
     line_user_id = db.Column(db.String(50), unique=True, nullable=False) # Line 用戶的唯一 ID
     is_subscribed = db.Column(db.Boolean, default=True) # 用戶是否仍然訂閱 (例如，是否封鎖了 Bot)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_latitude = db.Column(db.Float, nullable=True) # 用戶最後發送的緯度
+    user_longitude = db.Column(db.Float, nullable=True) # 用戶最後發送的經度
     
     # 這裡可以儲存一些用戶的預設偏好，例如預設警報閾值
     default_threshold = db.Column(db.Integer, default=100) # 用戶預設的警報閾值

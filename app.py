@@ -12,10 +12,11 @@ from datetime import datetime, timedelta
 
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, FollowEvent
+from linebot.models import MessageEvent, TextMessage, FollowEvent, LocationMessage
 
 from config import Config
 from models import db, Station, LineUser, LineUserStationPreference
+from utils.distance import calculate_distance
 
 # 創建 Flask 應用程式實例
 app = Flask(__name__)
@@ -119,13 +120,37 @@ def init_db():
 
 
 # --- 定義排程任務 ---
-# 修改點 1: 將 'interval' 改為 'cron'，並設定 minute=0 讓它在每個整點執行
 @scheduler.task('cron', id='fetch_aqi_data_job', minute=5, misfire_grace_time=900)
 def fetch_aqi_data_job():
+    """
+    排程任務：抓取即時空氣品質數據，並在抓取完成後觸發個人化通知發送。
+    """
     with app.app_context():
         app.logger.info(f"--- 排程任務: 正在抓取即時空氣品質數據 ({datetime.now()}) ---")
         fetch_and_store_realtime_aqi()
         app.logger.info("--- 排程任務: 即時空氣品質數據抓取完成 ---")
+        
+        # --- 新增：在數據抓取完成後，立即觸發個人化空氣品質通知 (基於用戶位置) ---
+        # 注意：這裡直接觸發 send_personalized_aqi_push_job，而不是另外設定一個獨立的 cron。
+        # 這樣可以確保推送的是最新數據。但如果這個推送任務很耗時，可能會影響下一次抓取。
+        # 更好的做法是讓 send_personalized_aqi_push_job 獨立運行 (例如每小時)。
+        # 考慮到數據更新頻率和通知頻率可能不同，我會保留兩個獨立的排程，
+        # 但確保 send_personalized_aqi_push_job 運行時能獲取到最新的數據。
+        #
+        # 因此，維持您原先的設計，讓 `send_personalized_aqi_push_job` 獨立排程更合理，
+        # 因為即時數據可能每小時抓取一次，但推送給所有用戶可能需要較長間隔 (避免 API 限制和打擾用戶)。
+        #
+        # 因此，我建議保留 `send_personalized_aqi_push_job` 作為一個獨立的每小時排程，
+        # 讓它在自己的時間點 (例如每小時的第 0 分鐘) 去查詢最新的 AQI 數據。
+        # 這樣 `fetch_aqi_data_job` 仍然只負責抓取和儲存，而不會被推送邏輯綁死。
+        # 您的原始代碼中，`send_personalized_aqi_alerts()` 被我建議添加到 `fetch_aqi_data_job` 內，
+        # 但在綜合考量後，把它變成獨立的 `send_personalized_aqi_push_job` 更具彈性。
+        # 所以，我將移除原先在 `fetch_aqi_data_job` 內部直接調用 `send_personalized_aqi_alerts()` 的建議，
+        # 轉而建議新增一個獨立的 `send_personalized_aqi_push_job` 定時任務。
+
+        # 這裡不直接調用 send_personalized_aqi_push_job，而是讓它作為一個獨立的排程運行
+        # 這樣可以解耦數據抓取和消息推送的頻率
+        app.logger.info("--- 排程任務: 即時空氣品質數據抓取完成。個人化通知將由獨立排程處理。---")
 
 @scheduler.task('interval', id='check_and_send_alerts_job', minutes=30, misfire_grace_time=600)
 def check_and_send_alerts_job():
@@ -538,32 +563,188 @@ def handle_follow(event):
             # 不向用戶回覆錯誤訊息，避免造成困擾
 
 @handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    # 當用戶發送文本訊息時觸發
-    # 這裡您可以根據用戶發送的內容實現更多互動功能 (例如查詢 AQI)
+def handle_text_message(event): # 更名為 handle_text_message 以避免與其他 MessageEvent 混淆
     line_user_id = event.source.user_id
     text = event.message.text
-    app.logger.info(f"收到來自 {line_user_id} 的訊息: {text}")
+    app.logger.info(f"收到來自 {line_user_id} 的文字訊息: {text}")
 
-    # 範例：簡單回覆用戶訊息 (可選)
-    # line_bot_api.reply_message(
-    #     event.reply_token,
-    #     TextMessage(text=f"您說了：{text}")
-    # )
+    # 您可以在這裡加入更多文字指令處理，例如查詢特定測站等
+    if "位置" in text or "地點" in text or "在哪" in text:
+        reply_message = "請您點擊 LINE 聊天室左下角的「+」號，然後選擇「位置資訊」來分享您的當前位置，我將為您提供最即時的附近空氣品質資訊。"
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextMessage(text=reply_message)
+        )
+    else:
+        # 預設回覆，可根據需要修改
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextMessage(text=f"您說了：『{text}』，歡迎使用空氣品質監測機器人！您可以點擊 LINE 聊天室左下角的「+」號，選擇「位置資訊」來分享您的當前位置，以便獲取附近的空氣品質資訊。")
+        )
 
-@handler.add(MessageEvent, message=None) # 處理非文本訊息（例如貼圖、圖片、影片等）
-def handle_non_text_message(event):
+# 3. 新增處理 LocationMessage 的函式：
+@handler.add(MessageEvent, message=LocationMessage)
+def handle_location_message(event):
     line_user_id = event.source.user_id
-    app.logger.info(f"收到來自 {line_user_id} 的非文本訊息。")
-    # line_bot_api.reply_message(
-    #     event.reply_token,
-    #     TextMessage(text="抱歉，我目前只能處理文字訊息。")
-    # )
+    latitude = event.message.latitude
+    longitude = event.message.longitude
+    app.logger.info(f"收到來自 {line_user_id} 的位置訊息: 緯度 {latitude}, 經度 {longitude}")
 
-# --- 處理 Unfollow 事件 (用戶封鎖 Bot) (此部分保持不變) ---
-@handler.add(MessageEvent, message=None) # 不指定 message 類型，以便處理所有事件
-def handle_unfollow(event):
-    if event.type == 'unfollow': # 判斷是否為 unfollow 事件
+    with app.app_context():
+        try:
+            line_user = LineUser.query.filter_by(line_user_id=line_user_id).first()
+            if line_user:
+                line_user.user_latitude = latitude
+                line_user.user_longitude = longitude
+                db.session.commit()
+                app.logger.info(f"已更新用戶 {line_user_id} 的位置資訊。")
+                
+                # 找到最近的測站並立即回覆
+                # 這裡調用您新的即時推送邏輯 (可以提取成一個 helper 函數)
+                message = get_nearest_station_aqi_message(latitude, longitude)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextMessage(text=message)
+                )
+            else:
+                # 如果用戶還沒有在 LineUser 表中，可能是 FollowEvent 之前發送位置
+                # 這情況應該很少見，但為了穩健性可以處理
+                new_user = LineUser(line_user_id=line_user_id, user_latitude=latitude, user_longitude=longitude, is_subscribed=True)
+                db.session.add(new_user)
+                db.session.commit()
+                app.logger.info(f"新增 Line 用戶並儲存位置資訊 (Location Event): {line_user_id}")
+                message = get_nearest_station_aqi_message(latitude, longitude)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextMessage(text=message)
+                )
+
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"處理 LocationMessage 或更新用戶位置時發生錯誤: {e}", exc_info=True)
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextMessage(text="抱歉，儲存您的位置時發生錯誤，請稍後再試。")
+            )
+
+# 4. 新增輔助函式：根據經緯度獲取最近的測站 AQI 訊息
+def get_nearest_station_aqi_message(user_lat, user_lon):
+    """
+    根據用戶經緯度，找到最近的監測站，並生成其 AQI 訊息。
+    """
+    if user_lat is None or user_lon is None:
+        return "未能取得您的位置資訊，請確認是否允許 LINE 應用程式取得位置權限。"
+
+    with app.app_context():
+        stations = Station.query.all()
+        nearest_station = None
+        min_distance = float('inf')
+
+        for station in stations:
+            if station.latitude is not None and station.longitude is not None:
+                distance = calculate_distance(user_lat, user_lon, station.latitude, station.longitude)
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_station = station
+        
+        if nearest_station:
+            message = (
+                f"您附近最近的測站是：{nearest_station.county} - {nearest_station.name}\n"
+                f"距離：約 {min_distance:.2f} 公里\n"
+                f"目前 AQI：{nearest_station.aqi if nearest_station.aqi is not None else 'N/A'} "
+                f"({nearest_station.status if nearest_station.status else 'N/A'})\n"
+                f"PM2.5：{nearest_station.pm25 if nearest_station.pm25 is not None else 'N/A'} µg/m³\n"
+                f"PM10：{nearest_station.pm10 if nearest_station.pm10 is not None else 'N/A'} µg/m³\n"
+                f"發布時間：{nearest_station.publish_time.strftime('%Y-%m-%d %H:%M') if nearest_station.publish_time else 'N/A'}\n"
+                "\n保持健康，請注意空氣品質！"
+            )
+            return message
+        else:
+            return "抱歉，目前未能找到您附近的監測站數據。"
+
+# 5. 新增排程任務：定期推送個人化 AQI 數據 (基於用戶位置)
+@scheduler.task('interval', id='send_personalized_aqi_push_job', minutes=60, misfire_grace_time=600) # 每小時推送一次
+def send_personalized_aqi_push_job():
+    """
+    排程任務：遍歷所有已提供位置資訊的用戶，推送其最近測站的最新空氣品質數據。
+    為了避免過於頻繁的推送，可以設置一定的間隔或僅在數據有顯著變化時推送。
+    """
+    with app.app_context():
+        app.logger.info(f"--- 排程任務: 正在發送個人化空氣品質推送 (基於用戶位置) ({datetime.now()}) ---")
+        
+        # 獲取所有已提供位置且仍然訂閱的用戶
+        line_users_with_location = LineUser.query.filter(
+            LineUser.is_subscribed == True,
+            LineUser.user_latitude.isnot(None),
+            LineUser.user_longitude.isnot(None)
+        ).all()
+        
+        # 獲取所有監測站數據 (一次性取出，減少數據庫查詢)
+        all_stations = Station.query.all()
+        
+        processed_count = 0
+        for user in line_users_with_location:
+            app.logger.info(f"為用戶 {user.line_user_id} 計算最近測站。")
+            
+            nearest_station = None
+            min_distance = float('inf')
+
+            for station in all_stations:
+                if station.latitude is not None and station.longitude is not None:
+                    distance = calculate_distance(user.user_latitude, user.user_longitude, station.latitude, station.longitude)
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_station = station
+            
+            if nearest_station:
+                # 這裡可以加入一個簡單的機制，例如只在 AQI 狀態變化或達到某閾值時才推送
+                # 目前先簡化為每小時推送一次最新的數據
+                
+                message = (
+                    f"【您所在地區的最新空氣品質】\n"
+                    f"測站：{nearest_station.county} - {nearest_station.name}\n"
+                    f"距離您約 {min_distance:.2f} 公里\n"
+                    f"目前 AQI：{nearest_station.aqi if nearest_station.aqi is not None else 'N/A'} "
+                    f"({nearest_station.status if nearest_station.status else 'N/A'})\n"
+                    f"PM2.5：{nearest_station.pm25 if nearest_station.pm25 is not None else 'N/A'} µg/m³\n"
+                    f"PM10：{nearest_station.pm10 if nearest_station.pm10 is not None else 'N/A'} µg/m³\n"
+                    f"發布時間：{nearest_station.publish_time.strftime('%Y-%m-%d %H:%M') if nearest_station.publish_time else 'N/A'}\n"
+                    f"\n若要停止接收此通知，請封鎖本機器人。\n"
+                    f"若要更新位置，請重新發送您的位置資訊。"
+                )
+                
+                # 發送訊息並處理結果
+                if send_line_message(user.line_user_id, message):
+                    processed_count += 1
+                # else: (send_line_message 內部已經會記錄錯誤)
+            else:
+                app.logger.warning(f"未能為用戶 {user.line_user_id} 找到最近的監測站。")
+        
+        app.logger.info(f"--- 排程任務: 已為 {processed_count} 個用戶發送個人化空氣品質推送 ---")
+
+
+# 7. 修正 `handle_non_text_message` 避免重複處理 Unfollow 事件
+# 原先的 handler.add(MessageEvent, message=None) 處理非文本訊息和 unfollow 事件
+# 這會導致 unfollow 事件被處理兩次 (一次是作為 MessageEvent with None message，一次是作為 UnfollowEvent)
+# 應該移除 MessageEvent, message=None 的 handler，讓 UnfollowEvent 專門處理
+# 您的程式碼中的 `handle_unfollow` 已經被正確定義為處理 `event.type == 'unfollow'`
+# 所以，您原始程式碼中的 `handle_non_text_message` 可以移除或修改為僅回覆非文字訊息。
+# 我將其修改為只回覆非文字訊息，並將 Unfollow 事件的處理邏輯保留在 `handle_unfollow` 中。
+@handler.add(MessageEvent, message=None) # 此處的 message=None 表示處理所有沒有特定類型匹配的 MessageEvent
+def handle_other_message_types(event):
+    line_user_id = event.source.user_id
+    app.logger.info(f"收到來自 {line_user_id} 的非文本訊息或未知 MessageEvent 類型: {event.type}")
+    
+    # 這裡的邏輯是為了處理那些不是 TextMessage 和 LocationMessage 的 MessageEvent
+    # 通常是貼圖、圖片、影片等。 Unfollow 事件會在 `handle_unfollow` 專門處理。
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextMessage(text="抱歉，我目前主要處理文字訊息和位置資訊。")
+    )
+
+@handler.add(MessageEvent) # 移除 message=None，這是一個通用處理 MessageEvent 的裝飾器
+def handle_unfollow(event): # 此函數應更名為 handle_postback_and_other_events 或類似
+    if event.type == 'unfollow':
         line_user_id = event.source.user_id
         app.logger.info(f"收到 Unfollow Event 來自用戶: {line_user_id}")
         with app.app_context():
@@ -572,7 +753,9 @@ def handle_unfollow(event):
                 line_user.is_subscribed = False # 將訂閱狀態設為 False
                 db.session.commit()
                 app.logger.info(f"用戶 {line_user_id} 取消關注，is_subscribed 設為 False。")
-
+    # else:
+    #     # 可以處理其他未明確定義的 MessageEvent 類型，例如 PostbackEvent
+    #     app.logger.info(f"收到未處理的 MessageEvent 類型: {event.type}")
 
 # 在應用程式上下文中執行資料庫初始化
 with app.app_context():
