@@ -568,24 +568,78 @@ def handle_follow(event):
             # 不向用戶回覆錯誤訊息，避免造成困擾
 
 @handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event): # 更名為 handle_text_message 以避免與其他 MessageEvent 混淆
+def handle_text_message(event):
     line_user_id = event.source.user_id
-    text = event.message.text
+    text = event.message.text.strip() # 移除前後空白，避免輸入錯誤
     app.logger.info(f"收到來自 {line_user_id} 的文字訊息: {text}")
 
-    # 您可以在這裡加入更多文字指令處理，例如查詢特定測站等
-    if "位置" in text or "地點" in text or "在哪" in text:
-        reply_message = "請您點擊 LINE 聊天室左下角的「+」號，然後選擇「位置資訊」來分享您的當前位置，我將為您提供最即時的附近空氣品質資訊。"
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextMessage(text=reply_message)
-        )
-    else:
-        # 預設回覆，可根據需要修改
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextMessage(text=f"您說了：『{text}』，歡迎使用空氣品質監測機器人！您可以點擊 LINE 聊天室左下角的「+」號，選擇「位置資訊」來分享您的當前位置，以便獲取附近的空氣品質資訊。")
-        )
+    with app.app_context():
+        # 1. 檢查用戶輸入的文字是否為有效的監測站名稱
+        station_to_subscribe = Station.query.filter_by(name=text).first()
+
+        if station_to_subscribe:
+            # 2. 如果找到了對應的監測站，將用戶與該站點的關係存入資料庫
+            try:
+                line_user = LineUser.query.filter_by(line_user_id=line_user_id).first()
+                if not line_user:
+                    # 如果 LineUser 不存在，先創建一個
+                    line_user = LineUser(line_user_id=line_user_id)
+                    db.session.add(line_user)
+                    db.session.commit()
+
+                # 檢查是否已存在該用戶與該站點的偏好設定
+                existing_preference = LineUserStationPreference.query.filter_by(
+                    line_user_id=line_user_id,
+                    station_id=station_to_subscribe.id
+                ).first()
+
+                if not existing_preference:
+                    # 如果不存在，則新增
+                    new_preference = LineUserStationPreference(
+                        line_user_id=line_user_id,
+                        station_id=station_to_subscribe.id,
+                        threshold_value=line_user.default_threshold
+                    )
+                    db.session.add(new_preference)
+                    db.session.commit()
+                    reply_message = f"您已成功訂閱『{station_to_subscribe.name}』站點的空氣品質警報！"
+                    app.logger.info(f"成功為用戶 {line_user_id} 新增 {station_to_subscribe.name} 的訂閱。")
+                else:
+                    # 如果已存在，則回覆已訂閱
+                    reply_message = f"您已經訂閱過『{station_to_subscribe.name}』站點的警報了喔！"
+                    app.logger.info(f"用戶 {line_user_id} 已經訂閱過 {station_to_subscribe.name}。")
+
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextMessage(text=reply_message)
+                )
+
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"儲存用戶訂閱時發生錯誤: {e}", exc_info=True)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextMessage(text="抱歉，儲存您的訂閱時發生錯誤，請稍後再試。")
+                )
+
+        # 3. 處理其他特定指令
+        elif "位置" in text or "地點" in text or "在哪" in text:
+            reply_message = "請您點擊 LINE 聊天室左下角的「+」號，然後選擇「位置資訊」來分享您的當前位置，我將為您提供最即時的附近空氣品質資訊。"
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextMessage(text=reply_message)
+            )
+        else:
+            # 4. 預設回覆
+            reply_message = (
+                f"您說了：『{text}』，歡迎使用空氣品質監測機器人！\n"
+                f"您可以發送『台北』、『台中』等監測站名稱來訂閱警報。\n"
+                f"或者點擊 LINE 聊天室左下角的「+」號，選擇「位置資訊」來獲取附近的空氣品質資訊。"
+            )
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextMessage(text=reply_message)
+            )
 
 # 3. 新增處理 LocationMessage 的函式：
 @handler.add(MessageEvent, message=LocationMessage)
