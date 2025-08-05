@@ -508,7 +508,7 @@ def manual_line_binding():
 
 
 # --- 新增 LINE Webhook 路由 (此部分保持不變) ---
-@app.route("/webhook/line", methods=['POST'])
+@app.route("/callback", methods=['POST'])
 def callback():
     # 獲取 X-Line-Signature 頭部的值
     signature = request.headers['X-Line-Signature']
