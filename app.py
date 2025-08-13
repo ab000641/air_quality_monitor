@@ -157,13 +157,6 @@ def fetch_aqi_data_job():
         # 這樣可以解耦數據抓取和消息推送的頻率
         app.logger.info("--- 排程任務: 即時空氣品質數據抓取完成。個人化通知將由獨立排程處理。---")
 
-@scheduler.task('interval', id='check_and_send_alerts_job', minutes=30, misfire_grace_time=600)
-def check_and_send_alerts_job():
-    with app.app_context():
-        app.logger.info(f"--- 排程任務: 正在檢查空氣品質警報並發送通知 ({datetime.now()}) ---")
-        send_aqi_alerts()
-        app.logger.info("--- 排程任務: 空氣品質警報檢查完成 ---")
-
 # --- API 互動函式 (此部分保持不變) ---
 def fetch_and_store_all_stations():
     """
@@ -301,49 +294,6 @@ def send_line_message(line_user_id, message_text):
     except Exception as e:
         app.logger.error(f"LINE 訊息發送失敗給 {line_user_id}: {e}", exc_info=True)
         return False
-
-def send_aqi_alerts():
-    """
-    檢查並發送 AQI 警報 (使用 LINE Messaging API)
-    """
-    user_station_preferences = LineUserStationPreference.query.all()
-    app.logger.info(f"正在檢查 {len(user_station_preferences)} 個用戶的空氣品質警報。")
-
-    for preference in user_station_preferences:
-        line_user = preference.line_user
-        station = preference.station
-        threshold_value = preference.threshold_value
-
-        # 確保 LineUser 活躍且測站存在
-        # is_subscribed 欄位很重要，如果用戶封鎖了 Bot，這個欄位應該被設定為 False
-        if line_user and line_user.is_subscribed and station:
-            can_send_alert = True
-            if preference.last_alert_sent_at:
-                # 假設每 3 小時才發送一次相同測站的警報，即使 AQI 持續超標
-                if datetime.utcnow() - preference.last_alert_sent_at < timedelta(hours=3):
-                    can_send_alert = False
-
-            if station.aqi is not None and station.aqi >= threshold_value and can_send_alert:
-                message = (
-                    f"\n【空氣品質警報】\n"
-                    f"測站：{station.county} - {station.name}\n"
-                    f"目前 AQI：{station.aqi} ({station.status})\n"
-                    f"發布時間：{station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A'}\n"
-                    f"已超過您設定的閾值：{threshold_value}！"
-                )
-                app.logger.info(f"嘗試向 Line 用戶 {line_user.line_user_id} (Station: {station.name}) 發送警報: AQI {station.aqi}")
-                
-                if send_line_message(line_user.line_user_id, message):
-                    preference.last_alert_sent_at = datetime.utcnow()
-                    db.session.commit()
-                else:
-                    # 如果發送失敗，考慮將用戶 is_subscribed 設為 False (例如用戶封鎖了 Bot)
-                    # 只有當 LINE API 返回用戶封鎖的錯誤碼時才這樣做，否則會誤判
-                    # 這需要更細緻的錯誤處理，這裡簡化
-                    app.logger.warning(f"警告: 無法發送 LINE 訊息給用戶 {line_user.line_user_id}。")
-            # else:
-            #     app.logger.debug(f"測站 {station.name} AQI {station.aqi} 未超過閾值 {threshold_value} 或未到發送間隔。")
-
 
 # --- 路由 (Routes) ---
 
@@ -722,7 +672,7 @@ def get_nearest_station_aqi_message(user_lat, user_lon):
             return "抱歉，目前未能找到您附近的監測站數據。"
 
 # 5. 新增排程任務：定期推送個人化 AQI 數據 (基於用戶位置)
-@scheduler.task('interval', id='send_personalized_aqi_push_job', minutes=60, misfire_grace_time=600) # 每小時推送一次
+@scheduler.task('cron', id='send_personalized_aqi_push_job', minutes=10, misfire_grace_time=600)
 def send_personalized_aqi_push_job():
     """
     排程任務：遍歷所有已提供位置資訊的用戶，推送其最近測站的最新空氣品質數據。
