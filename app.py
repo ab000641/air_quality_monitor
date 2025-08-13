@@ -672,7 +672,7 @@ def get_nearest_station_aqi_message(user_lat, user_lon):
             return "抱歉，目前未能找到您附近的監測站數據。"
 
 # 5. 新增排程任務：定期推送個人化 AQI 數據 (基於用戶位置)
-@scheduler.task('cron', id='send_personalized_aqi_push_job', minutes=10, misfire_grace_time=600)
+@scheduler.task('cron', id='send_personalized_aqi_push_job', minute=10, misfire_grace_time=600)
 def send_personalized_aqi_push_job():
     """
     排程任務：遍歷所有已提供位置資訊的用戶，推送其最近測站的最新空氣品質數據。
