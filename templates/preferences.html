@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定空氣品質通知偏好</title>
+    <link href="{{ url_for('static', filename='output.css') }}" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="container mx-auto p-4 bg-white rounded-lg shadow-md max-w-lg">
+        <h1 class="text-3xl font-bold text-center mb-6">設定空氣品質通知偏好</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="mb-4">
+                {% for category, message in messages %}
+                    <li class="p-3 mb-2 rounded-md {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% endif %}">
+                        {{ message }}
+                    </li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <p class="text-center text-gray-600 mb-6">
+            選擇您想追蹤的監測站，當空氣品質超出您的設定閾值時，我們將會透過 LINE 機器人通知您。
+        </p>
+
+        <form action="{{ url_for('preferences') }}" method="POST">
+            <div class="mb-6">
+                <label for="threshold" class="block text-gray-700 font-semibold mb-2">
+                    警報閾值 (AQI):
+                </label>
+                <input type="number" id="threshold" name="threshold" 
+                       value="{{ default_threshold }}" min="0" required 
+                       class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-sm text-gray-500 mt-1">當 AQI 達到或超過此值時發送警報。</p>
+            </div>
+
+            <div class="mb-6">
+                <label for="stations" class="block text-gray-700 font-semibold mb-2">
+                    選擇監測站 (可多選，按住 Ctrl/Cmd 鍵):
+                </label>
+                <select id="stations" name="station_ids" multiple size="10" 
+                        class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% for station in stations %}
+                        <option value="{{ station.id }}" {% if station.id in user_station_ids %}selected{% endif %}>
+                            {{ station.county }} - {{ station.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <p class="text-sm text-gray-500 mt-1">不選擇任何測站將會取消所有訂閱。</p>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                    儲存設定
+                </button>
+                <a href="{{ url_for('index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
+                    返回首頁
+                </a>
+            </div>
+        </form>
+
+        <div class="text-center mt-6">
+             <a href="{{ url_for('logout') }}" class="text-red-500 hover:text-red-700 font-medium">登出 LINE 帳號</a>
+        </div>
+    </div>
+</body>
+</html>
