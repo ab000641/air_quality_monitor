@@ -41,6 +41,7 @@ jobs:
         tags: cokehuang/air_quality_monitor:latest
         no-cache: true
         platforms: linux/amd64
+      working-directory: ${{ github.workspace }}
 
     - name: Copy deployment files to EC2
       uses: appleboy/scp-action@master
