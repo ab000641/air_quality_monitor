@@ -61,16 +61,17 @@ jobs:
           echo "Connecting to EC2 and deploying..."
           cd ~/air_quality_monitor
 
-          # --- 修改：動態生成 .env 檔案，並新增 LINE_CHANNEL_ID ---
+          # --- 修改：動態生成 .env 檔案，並新增 LINE 登入和機器人憑證 ---
           echo "Generating .env file on EC2..."
           cat << EOF > .env
           DB_NAME=${{ secrets.DB_NAME }}
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           EPA_AQI_API_KEY=${{ secrets.EPA_AQI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN=${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_CHANNEL_SECRET=${{ secrets.LINE_CHANNEL_SECRET }}
-          LINE_CHANNEL_ID=${{ secrets.LINE_CHANNEL_ID }} # 新增此行
+          LINE_LOGIN_CHANNEL_ID=${{ secrets.LINE_LOGIN_CHANNEL_ID }}
+          LINE_LOGIN_CHANNEL_SECRET=${{ secrets.LINE_LOGIN_CHANNEL_SECRET }}
+          LINE_MESSAGING_CHANNEL_ACCESS_TOKEN=${{ secrets.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN }}
+          LINE_MESSAGING_CHANNEL_SECRET=${{ secrets.LINE_MESSAGING_CHANNEL_SECRET }}
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           EOF
           echo "--- Content of generated .env file: ---"
@@ -98,7 +99,7 @@ jobs:
 
           # 拉取最新的 Docker 映像
           docker-compose pull
-          
+      
           # 啟動新的容器
           docker-compose up -d
           echo "Deployment complete."
