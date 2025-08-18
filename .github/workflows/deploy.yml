@@ -51,7 +51,7 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "docker-compose.yml,nginx/"
+        source: "docker-compose.yml,nginx/,app.py"
         target: "~/air_quality_monitor/"
 
     - name: Deploy to EC2
