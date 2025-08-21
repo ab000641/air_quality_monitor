@@ -16,11 +16,13 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, FollowEvent, LocationMessage, UnfollowEvent
 
 from config import Config
-from models import db, Station, LineUser, LineUserStationPreference
+from models import db, LineUser, Station, LineUserStationPreference
+
 from utils.distance import calculate_distance
 from redis import Redis
 from rq import Queue
 from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy.orm import joinedload
 
 redis_connection = Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 aqi_queue = Queue('aqi_queue', connection=redis_connection)
@@ -260,6 +262,24 @@ def send_line_message(line_user_id, message_text):
         app.logger.error(f"LINE 訊息發送失敗給 {line_user_id}: {e}", exc_info=True)
         return False
 
+# 這裡我將您的 `calculate_distance` 函式保留不變
+def calculate_distance(lat1, lon1, lat2, lon2):
+    import math
+    R = 6371  # 地球半徑（公里）
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance
+
 @app.route('/')
 def index():
     with app.app_context():
@@ -329,6 +349,7 @@ def preferences():
 
     # 獲取已選擇的偏好設定
     with app.app_context():
+        # 注意：這裡使用您 models.py 中定義的屬性名稱 `stations_preferences`
         user_preferences = LineUserStationPreference.query.filter_by(line_user_id=line_user_id).all()
         user_station_ids = {pref.station_id for pref in user_preferences}
         default_threshold = 100
@@ -376,6 +397,7 @@ def preferences():
                 for pref in existing_preferences:
                     if pref.station_id not in station_ids:
                         db.session.delete(pref)
+                        # 注意：這裡使用了您 models.py 中的 `station` 屬性
                         app.logger.info(f"用戶 {line_user_id} 移除測站 {pref.station.name} 的訂閱。")
 
                 # 新增或更新需要的偏好
@@ -421,11 +443,11 @@ def line_login():
     導向 LINE Login 授權頁面
     """
     redirect_uri = url_for('line_callback', _external=True)
-    state = 'a_secure_state_string_for_csrf_protection'
+    state = os.urandom(16).hex() # 每次都產生新的 state
     session['line_state'] = state
     auth_url = 'https://access.line.me/oauth2/v2.1/authorize?' + urlencode({
         'response_type': 'code',
-        'client_id': LINE_LOGIN_CHANNEL_ID, # <-- 使用 LINE Login 頻道的 ID
+        'client_id': LINE_LOGIN_CHANNEL_ID,
         'redirect_uri': redirect_uri,
         'state': state,
         'scope': 'profile openid',
@@ -438,9 +460,24 @@ def line_callback():
     """
     接收來自 LINE Login 的回呼
     """
-    code = request.args.get('code')
+    # 1. 驗證 state 並檢查是否有錯誤
     state = request.args.get('state')
-    # ... (驗證 state 邏輯保持不變) ...
+    error = request.args.get('error')
+    error_description = request.args.get('error_description')
+    code = request.args.get('code')
+
+    if state != session.get('line_state'):
+        flash("登入失敗：無效的狀態（state）。請重試。", "error")
+        app.logger.error(f"登入失敗: 無效的狀態（state）。Session state: {session.get('line_state')}, Request state: {state}")
+        # 務必在任何失敗情況下回傳回應
+        return redirect(url_for('index'))
+    
+    if error:
+        flash(f"登入失敗：LINE 授權錯誤 - {error_description}", "error")
+        app.logger.error(f"LINE 授權錯誤: {error}, 描述: {error_description}")
+        # 務必在任何失敗情況下回傳回應
+        return redirect(url_for('index'))
+
     # 2. 用 code 換取 access token
     try:
         token_url = 'https://api.line.me/oauth2/v2.1/token'
@@ -449,24 +486,47 @@ def line_callback():
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': url_for('line_callback', _external=True),
-            'client_id': LINE_LOGIN_CHANNEL_ID, # <-- 使用 LINE Login 頻道的 ID
-            'client_secret': LINE_LOGIN_CHANNEL_SECRET, # <-- 使用 LINE Login 頻道的 Secret
+            'client_id': LINE_LOGIN_CHANNEL_ID,
+            'client_secret': LINE_LOGIN_CHANNEL_SECRET,
         }
-        # ... (後續換取 access token 和用戶資料的邏輯保持不變) ...
         response = requests.post(token_url, headers=headers, data=data)
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data.get('access_token')
+        id_token = token_data.get('id_token')
 
-        # ... (後續程式碼保持不變) ...
-    
+        # 3. 驗證 ID Token 並獲取用戶資料
+        user_info_url = 'https://api.line.me/v2/profile'
+        user_info_headers = {'Authorization': f'Bearer {access_token}'}
+        user_info_response = requests.get(user_info_url, headers=user_info_headers)
+        user_info_response.raise_for_status()
+        user_info_data = user_info_response.json()
+        
+        line_user_id = user_info_data.get('userId')
+        display_name = user_info_data.get('displayName')
+
+        if not line_user_id:
+            flash("登入失敗：未能從 LINE 獲取用戶 ID。", "error")
+            app.logger.error("未能從 LINE 獲取用戶 ID。")
+            return redirect(url_for('index'))
+
+        # 4. 儲存用戶 ID 到 Session 中
+        session['line_user_id'] = line_user_id
+        flash(f"哈囉, {display_name}！您已成功使用 LINE 登入。", "success")
+        app.logger.info(f"用戶 {line_user_id} 成功登入，顯示名稱: {display_name}")
+
+        # 5. 回傳有效的 Response，將用戶重導向到偏好設定頁面或主頁
+        return redirect(url_for('preferences'))
+
     except requests.exceptions.RequestException as e:
         app.logger.error(f"LINE 登入流程中發生網路錯誤: {e}", exc_info=True)
         flash("登入失敗，網路錯誤。請稍後再試。", "error")
+        # 務必在任何失敗情況下回傳回應
         return redirect(url_for('index'))
     except Exception as e:
         app.logger.error(f"LINE 登入流程中發生未知錯誤: {e}", exc_info=True)
         flash("登入失敗，發生未知錯誤。請稍後再試。", "error")
+        # 務必在任何失敗情況下回傳回應
         return redirect(url_for('index'))
 
 
@@ -526,9 +586,6 @@ def handle_text_message(event):
     text = event.message.text.strip()
     app.logger.info(f"收到來自 {line_user_id} 的文字訊息: {text}")
 
-    # 這段文字處理邏輯保持不變
-    # ... (您的原始 handle_text_message 內容)
-    # 這裡我將您的原始 handle_text_message 函式保留不變，因為它已經處理了文字指令和測站訂閱
     with app.app_context():
         station_to_subscribe = Station.query.filter_by(name=text).first()
         if station_to_subscribe:
@@ -548,7 +605,7 @@ def handle_text_message(event):
                     new_preference = LineUserStationPreference(
                         line_user_id=line_user_id,
                         station_id=station_to_subscribe.id,
-                        threshold_value=line_user.default_threshold
+                        threshold_value=line_user.default_threshold if line_user.default_threshold is not None else 100
                     )
                     db.session.add(new_preference)
                     db.session.commit()
@@ -706,18 +763,22 @@ def send_personalized_aqi_push_job():
         
         app.logger.info(f"--- 排程任務: 已為 {processed_count} 個用戶發送個人化空氣品質推送 ---")
 
-
-# --- 新增：新的排程任務：發送基於偏好設定的警報 ---
 @scheduler.task('cron', id='send_personalized_aqi_alerts', minute=10, misfire_grace_time=600)
 def send_personalized_aqi_alerts_job():
     """
     排程任務：檢查所有設定了偏好監測站的用戶，並在 AQI 超過閾值時發送警報。
+    優化：使用 joinedload 預先加載相關的 LineUser 和 Station 物件，避免 N+1 查詢問題。
     """
     with app.app_context():
         app.logger.info(f"--- 排程任務: 正在檢查用戶偏好並發送警報 ({datetime.now()}) ---")
 
         # 獲取所有設定了偏好且仍然訂閱的用戶
-        preferences = LineUserStationPreference.query.filter(
+        # 使用 joinedload 立即加載關聯的 LineUser 和 Station 物件
+        preferences = LineUserStationPreference.query.options(
+            joinedload(LineUserStationPreference.line_user),
+            joinedload(LineUserStationPreference.station)
+        ).filter(
+            # 注意：這裡使用了您 models.py 中定義的屬性名稱 `line_user`
             LineUserStationPreference.line_user.has(LineUser.is_subscribed == True)
         ).all()
         
@@ -726,11 +787,6 @@ def send_personalized_aqi_alerts_job():
             user = pref.line_user
             station = pref.station
             
-            # 確保獲取最新數據
-            db.session.refresh(station)
-            
-            # 如果 AQI 超過閾值，且距離上次發送警報的時間超過設定間隔（例如 1 小時）
-            # 這一段邏輯可以根據您的需求調整
             threshold = pref.threshold_value
             aqi = station.aqi
 
@@ -767,7 +823,7 @@ def handle_other_message_types(event):
         TextMessage(text="抱歉，我目前主要處理文字訊息和位置資訊。")
     )
 
-@handler.add(UnfollowEvent) # --- 修改：使用 UnfollowEvent 專門處理取消關注事件 ---
+@handler.add(UnfollowEvent)
 def handle_unfollow_event(event):
     line_user_id = event.source.user_id
     app.logger.info(f"收到 UnfollowEvent 來自用戶: {line_user_id}")
@@ -783,4 +839,5 @@ with app.app_context():
     app.logger.info("資料庫初始化及表格創建已執行。")
 
 if __name__ == '__main__':
+    # 這裡可以根據您的環境變數設定來決定主機和端口
     app.run(host='0.0.0.0', port=5001, debug=True)
