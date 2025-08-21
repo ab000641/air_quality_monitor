@@ -360,6 +360,7 @@ def preferences():
     if request.method == 'POST':
         # 在 POST 請求中處理表單提交
         selected_station_ids = request.form.getlist('station_ids')
+        # 由於現在是定時發送，不再使用閾值，但表單欄位保留以防未來需要
         threshold_value = request.form.get('threshold', type=int, default=100)
         
         # 處理取消訂閱的情況
@@ -385,6 +386,7 @@ def preferences():
                     db.session.add(line_user)
                     db.session.commit()
                 else:
+                    # 即使現在不使用，也更新預設閾值
                     line_user.default_threshold = threshold_value
                     line_user.is_subscribed = True
                     db.session.commit()
@@ -763,54 +765,60 @@ def send_personalized_aqi_push_job():
         
         app.logger.info(f"--- 排程任務: 已為 {processed_count} 個用戶發送個人化空氣品質推送 ---")
 
-@scheduler.task('cron', id='send_personalized_aqi_alerts', minute=10, misfire_grace_time=600)
+
+# --- 修改: 變更排程任務邏輯為每個整點發送所有用戶的追蹤測站數據 ---
+@scheduler.task('cron', id='send_personalized_aqi_alerts', minute='0', misfire_grace_time=600)
 def send_personalized_aqi_alerts_job():
     """
-    排程任務：檢查所有設定了偏好監測站的用戶，並在 AQI 超過閾值時發送警報。
+    排程任務：每個整點檢查所有設定了偏好監測站的用戶，並發送最新的空氣品質數據。
     優化：使用 joinedload 預先加載相關的 LineUser 和 Station 物件，避免 N+1 查詢問題。
     """
     with app.app_context():
-        app.logger.info(f"--- 排程任務: 正在檢查用戶偏好並發送警報 ({datetime.now()}) ---")
+        app.logger.info(f"--- 排程任務: 正在發送每個整點的空氣品質報告 ({datetime.now()}) ---")
 
         # 獲取所有設定了偏好且仍然訂閱的用戶
-        # 使用 joinedload 立即加載關聯的 LineUser 和 Station 物件
         preferences = LineUserStationPreference.query.options(
             joinedload(LineUserStationPreference.line_user),
             joinedload(LineUserStationPreference.station)
         ).filter(
-            # 注意：這裡使用了您 models.py 中定義的屬性名稱 `line_user`
             LineUserStationPreference.line_user.has(LineUser.is_subscribed == True)
         ).all()
         
-        processed_count = 0
+        # 將偏好按用戶分組，以便一次性發送多個測站數據
+        user_reports = {}
         for pref in preferences:
-            user = pref.line_user
+            user_id = pref.line_user.line_user_id
             station = pref.station
             
-            threshold = pref.threshold_value
-            aqi = station.aqi
-
-            # 確保 AQI 有效，且大於閾值
-            if aqi is not None and aqi >= threshold:
-                # 檢查上次發送時間，避免重複發送
-                time_since_last_alert = datetime.now() - pref.last_alert_sent_at if pref.last_alert_sent_at else None
+            # 確保測站數據有效
+            if station.aqi is not None:
+                if user_id not in user_reports:
+                    user_reports[user_id] = []
                 
-                # 如果是第一次發送，或者距離上次發送已超過 1 小時 (3600 秒)
-                if time_since_last_alert is None or time_since_last_alert > timedelta(hours=1):
-                    message = (
-                        f"【空氣品質警報】\n"
-                        f"您追蹤的測站『{station.name}』的空氣品質已超過您設定的警報閾值！\n"
-                        f"目前 AQI：{aqi} ({station.status})\n"
-                        f"發布時間：{station.publish_time.strftime('%Y-%m-%d %H:%M') if station.publish_time else 'N/A'}\n"
-                    )
-                    
-                    if send_line_message(user.line_user_id, message):
-                        pref.last_alert_sent_at = datetime.now() # 更新上次發送時間
-                        db.session.commit()
-                        processed_count += 1
-                        app.logger.info(f"成功為用戶 {user.line_user_id} 發送『{station.name}』的警報。")
+                report_line = (
+                    f"【{station.name}】\n"
+                    f"　▸AQI: {station.aqi} ({station.status})\n"
+                    f"　▸PM2.5: {station.pm25 if station.pm25 is not None else 'N/A'} µg/m³\n"
+                    f"　▸PM10: {station.pm10 if station.pm10 is not None else 'N/A'} µg/m³\n"
+                )
+                user_reports[user_id].append(report_line)
 
-        app.logger.info(f"--- 排程任務: 已為 {processed_count} 個用戶發送基於偏好的警報 ---")
+        processed_count = 0
+        for user_id, reports in user_reports.items():
+            if reports:
+                # 組合最終訊息
+                full_message = (
+                    "【您的空氣品質定期報告】\n"
+                    f"報告時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+                    + "\n".join(reports) +
+                    "\n\n若要新增/移除追蹤站點，請前往網站。"
+                )
+                
+                if send_line_message(user_id, full_message):
+                    processed_count += 1
+                    app.logger.info(f"成功為用戶 {user_id} 發送定期空氣品質報告。")
+
+        app.logger.info(f"--- 排程任務: 已為 {processed_count} 個用戶發送定期報告 ---")
 
 
 @handler.add(MessageEvent, message=None)
