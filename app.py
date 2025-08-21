@@ -81,8 +81,6 @@ LINE_MESSAGING_CHANNEL_SECRET = os.getenv('LINE_MESSAGING_CHANNEL_SECRET')
 # ... (您的其他 app.py 內容) ...
 
 app = Flask(__name__)
-# *** 新增：明確設定 SERVER_NAME 以確保 url_for 生成正確的外部網址 ***
-app.config['SERVER_NAME'] = 'airquality.ab000641.site'
 app.config.from_object(Config)
 
 db.init_app(app)
