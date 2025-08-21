@@ -121,3 +121,5 @@ jobs:
           docker-compose ps
           docker-compose logs nginx
           docker-compose logs web
+
+      timeout-minutes: 10
