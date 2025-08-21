@@ -20,6 +20,7 @@ from models import db, Station, LineUser, LineUserStationPreference
 from utils.distance import calculate_distance
 from redis import Redis
 from rq import Queue
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 redis_connection = Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 aqi_queue = Queue('aqi_queue', connection=redis_connection)
@@ -81,6 +82,7 @@ LINE_MESSAGING_CHANNEL_SECRET = os.getenv('LINE_MESSAGING_CHANNEL_SECRET')
 # ... (您的其他 app.py 內容) ...
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_host=1, x_prefix=1, x_for=1, x_proto=1)
 app.config.from_object(Config)
 
 db.init_app(app)
