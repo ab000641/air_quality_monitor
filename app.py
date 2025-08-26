@@ -4,6 +4,7 @@ import json
 import hmac
 import hashlib
 import logging
+import pytz
 from urllib.parse import urlencode
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify
@@ -806,10 +807,12 @@ def send_personalized_aqi_alerts_job():
         processed_count = 0
         for user_id, reports in user_reports.items():
             if reports:
-                # 組合最終訊息
+                taipei_tz = pytz.timezone('Asia/Taipei')
+                current_time_taipei = datetime.now(taipei_tz)
+
                 full_message = (
                     "【您的空氣品質定期報告】\n"
-                    f"報告時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+                    f"報告時間: {current_time_taipei.strftime('%Y-%m-%d %H:%M')}\n\n"
                     + "\n".join(reports) +
                     "\n\n若要新增/移除追蹤站點，請前往網站。"
                 )

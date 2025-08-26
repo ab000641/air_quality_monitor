@@ -8,4 +8,5 @@ line-bot-sdk
 alembic
 gunicorn
 rq
-redis      
+redis
+pytz
