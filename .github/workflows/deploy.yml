@@ -29,40 +29,25 @@ jobs:
       run: npm run build:css
       working-directory: ${{ github.workspace }}
 
+    # --- Docker 登入、建構與推送 ---
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: List files for Docker context
-      run: ls -al
-      working-directory: ${{ github.workspace }}
-
     - name: Build and push Docker image to Docker Hub
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: . # 確保 Docker 建構時使用整個專案目錄作為上下文
         push: true
         tags: cokehuang/air_quality_monitor:latest
         platforms: linux/amd64
 
-    - name: List files before scp
-      run: |
-        echo "Listing files in GitHub Actions runner before scp:"
-        ls -l app.py
-        git log -1 --pretty=format:"%h - %an, %ar : %s"
-        echo "----------------------------------------------------"
-
-    - name: Copy deployment files to EC2
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "docker-compose.yml,nginx/,app.py"
-        target: "~/air_quality_monitor/"
-        overwrite: true
+    # 移除手動 SCP 檔案的步驟，因為所有檔案都已打包在 Docker 映像中
+    # - name: Copy deployment files to EC2
+    #   uses: appleboy/scp-action@master
+    #   ...
 
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -74,7 +59,7 @@ jobs:
           echo "Connecting to EC2 and deploying..."
           cd ~/air_quality_monitor
 
-          # --- 修改：動態生成 .env 檔案，並新增 LINE 登入和機器人憑證 ---
+          # --- 動態生成 .env 檔案 ---
           echo "Generating .env file on EC2..."
           cat << EOF > .env
           DB_NAME=${{ secrets.DB_NAME }}
@@ -90,13 +75,8 @@ jobs:
           echo "--- Content of generated .env file: ---"
           cat .env
           echo "---------------------------------------"
-          # --- 動態生成 .env 檔案修改結束 ---
 
-          # --- 診斷步驟和憑證權限調整 (保持不變) ---
-          echo "--- Diagnostic: Checking Nginx config files on EC2 ---"
-          ls -l ~/air_quality_monitor/nginx/conf.d/
-          cat ~/air_quality_monitor/nginx/conf.d/air_quality_monitor.conf
-          echo "--- End of Diagnostic ---"
+          # --- 調整憑證權限 (保持不變) ---
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           sudo chmod 755 /etc/letsencrypt/live/
           sudo chmod 755 /etc/letsencrypt/live/ab000641.site/
@@ -105,7 +85,6 @@ jobs:
           sudo chmod 644 /etc/letsencrypt/options-ssl-nginx.conf
           sudo chmod 644 /etc/letsencrypt/ssl-dhparams.pem
           echo "Certificate permissions adjusted."
-          # --- 診斷步驟和憑證權限調整結束 ---
 
           # 停止並移除舊的容器和相關資源
           docker-compose down --volumes --rmi all --remove-orphans
