@@ -44,7 +44,6 @@ services:
     command: gunicorn --bind 0.0.0.0:5001 app:app
     volumes:
       - ./app.py:/app/app.py
-      - static_data:/app/static # 👈 新增：共用靜態檔案
 
   worker:
     image: cokehuang/air_quality_monitor:latest
