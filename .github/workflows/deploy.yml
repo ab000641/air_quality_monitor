@@ -44,26 +44,15 @@ jobs:
         tags: cokehuang/air_quality_monitor:latest
         platforms: linux/amd64
 
-    # ----------------------------------------------------
-    # 這是修正的關鍵！新增這兩個步驟來同步設定檔到 EC2
-    # ----------------------------------------------------
-    - name: Copy docker-compose.yml to EC2
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "docker-compose.yml"
-        target: "~/air_quality_monitor/"
-
-    - name: Copy nginx configs to EC2
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "nginx/"
-        target: "~/air_quality_monitor/"
+   - name: Copy necessary files to EC2
+  uses: appleboy/scp-action@master
+  with:
+    host: ${{ secrets.EC2_HOST }}
+    username: ${{ secrets.EC2_USERNAME }}
+    key: ${{ secrets.EC2_SSH_KEY }}
+    # 確保這些檔案和目錄被複製到 EC2
+    source: "docker-compose.yml,nginx/,app.py,requirements.txt" 
+    target: "~/air_quality_monitor/"
         
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
