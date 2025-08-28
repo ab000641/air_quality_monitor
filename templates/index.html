@@ -19,7 +19,7 @@
         <h1 class="text-3xl font-bold text-center mb-6">台灣空氣品質監測</h1>
         
         <div class="flex justify-center mb-6">
-            <a href="/line_login" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center">
+            <a href="/line_login" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
                 <img src="https://developers.line.biz/assets/img/login/btn_login_base.png" alt="LINE 登入" class="h-6 w-auto mr-2">
                 使用 LINE 登入並設定通知
             </a>
@@ -97,7 +97,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const filterButtons = document.querySelectorAll('.filter-button');
             const stationsContainer = document.getElementById('stations-container');
-            let aqiCards = stationsContainer ? stationsContainer.querySelectorAll('.aqi-card') : []; // 確保這裡是 let
+            let aqiCards = stationsContainer ? stationsContainer.querySelectorAll('.aqi-card') : [];
 
             let currentFilters = {
                 status: 'all',
@@ -147,10 +147,9 @@
                 });
             });
 
-            // 新增：動態更新 AQI 數據的函式
             async function fetchAndUpdateAqiData() {
                 try {
-                    const response = await fetch('/api/aqi_data'); // 請求新的 API 端點
+                    const response = await fetch('/api/aqi_data');
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -160,11 +159,9 @@
                         const cardElement = stationsContainer.querySelector(`[data-station-id="${newStationData.id}"]`);
                         
                         if (cardElement) {
-                            // 更新卡片的 data-status 和 data-region
                             cardElement.dataset.status = newStationData.status || 'N/A';
                             cardElement.dataset.region = newStationData.region || '未知區域';
 
-                            // 找到並更新對應的元素
                             const aqiValueElement = cardElement.querySelector('.aqi-value');
                             const aqiStatusLabelElement = cardElement.querySelector('.aqi-status-label');
                             const pm25ValueElement = cardElement.querySelector('.pm25-value');
@@ -173,21 +170,21 @@
                             const noDataMessage = cardElement.querySelector('.no-data-message');
 
                             if (newStationData.aqi !== null) {
-                                if (noDataMessage) noDataMessage.style.display = 'none'; // 隱藏無數據訊息
+                                if (noDataMessage) {
+                                    noDataMessage.style.display = 'none';
+                                    noDataMessage.parentElement.querySelector('.aqi-value').parentElement.style.display = '';
+                                }
 
                                 if (aqiValueElement) aqiValueElement.textContent = newStationData.aqi;
                                 if (aqiStatusLabelElement) {
                                     aqiStatusLabelElement.textContent = newStationData.status || 'N/A';
-                                    // 移除所有舊的背景和文字顏色類別 (基於您的 `STATUS_TO_CLASS_NAME` 邏輯)
-                                    // 確保您在 `tailwind.config.js` 的 safelist 中包含了所有這些類別
-                                    const oldClasses = Array.from(aqiStatusLabelElement.classList).filter(cls => 
-                                        cls.startsWith('bg-') && cls.endsWith('-status') || 
-                                        cls.startsWith('text-') && cls.endsWith('-aqi')
-                                    );
-                                    aqiStatusLabelElement.classList.remove(...oldClasses);
-                                    aqiValueElement.classList.remove(...oldClasses); // AQI 值也移除舊的文字顏色
+                                    
+                                    const oldStatusClassName = Array.from(aqiStatusLabelElement.classList).find(cls => cls.endsWith('-status'));
+                                    const oldAqiClassName = Array.from(aqiValueElement.classList).find(cls => cls.endsWith('-aqi'));
 
-                                    // 添加新的背景和文字顏色類別
+                                    if (oldStatusClassName) aqiStatusLabelElement.classList.remove(oldStatusClassName);
+                                    if (oldAqiClassName) aqiValueElement.classList.remove(oldAqiClassName);
+
                                     aqiStatusLabelElement.classList.add(`bg-${newStationData.status_class_name}-status`);
                                     aqiValueElement.classList.add(`text-${newStationData.status_class_name}-aqi`);
                                 }
@@ -196,37 +193,29 @@
                                 if (publishTimeElement) publishTimeElement.textContent = newStationData.publish_time;
 
                             } else {
-                                // 如果數據為 null，顯示無數據訊息
-                                if (noDataMessage) noDataMessage.style.display = '';
-                                if (aqiValueElement) aqiValueElement.textContent = '';
-                                if (aqiStatusLabelElement) {
-                                    aqiStatusLabelElement.textContent = '';
-                                    aqiStatusLabelElement.className = 'text-md font-bold mt-1 inline-block px-2 py-1 rounded text-white'; // 清除顏色類別
+                                if (noDataMessage) {
+                                    noDataMessage.style.display = '';
+                                    noDataMessage.parentElement.querySelector('.aqi-value').parentElement.style.display = 'none';
                                 }
+                                if (aqiValueElement) aqiValueElement.textContent = '';
+                                if (aqiStatusLabelElement) aqiStatusLabelElement.textContent = '';
                                 if (pm25ValueElement) pm25ValueElement.textContent = 'N/A';
                                 if (pm10ValueElement) pm10ValueElement.textContent = 'N/A';
                                 if (publishTimeElement) publishTimeElement.textContent = 'N/A';
                             }
                         }
                     });
-                    applyFilters(); // 更新數據後重新應用篩選
+                    applyFilters();
 
                 } catch (error) {
                     console.error("Error fetching AQI data:", error);
                 }
             }
 
-            // 初始化時應用篩選和按鈕視覺狀態
             applyFilters();
             updateButtonVisuals();
 
-            // 首次載入後立即獲取一次數據 (可選，如果數據總是最新可以省略)
-            // fetchAndUpdateAqiData();
-
-            // 每 5 分鐘 (300000 毫秒) 自動刷新一次數據
-            // 請根據您的需求調整刷新頻率，注意不要對 API 造成過大負載
-            // 環境部 API 通常每小時更新一次，所以設定為 5-30 分鐘即可
-            const refreshInterval = 5 * 60 * 1000; // 5 分鐘
+            const refreshInterval = 5 * 60 * 1000;
             setInterval(fetchAndUpdateAqiData, refreshInterval);
         });
     </script>
