@@ -44,11 +44,27 @@ jobs:
         tags: cokehuang/air_quality_monitor:latest
         platforms: linux/amd64
 
-    # 移除手動 SCP 檔案的步驟，因為所有檔案都已打包在 Docker 映像中
-    # - name: Copy deployment files to EC2
-    #   uses: appleboy/scp-action@master
-    #   ...
+    # ----------------------------------------------------
+    # 這是修正的關鍵！新增這兩個步驟來同步設定檔到 EC2
+    # ----------------------------------------------------
+    - name: Copy docker-compose.yml to EC2
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.yml"
+        target: "~/air_quality_monitor/"
 
+    - name: Copy nginx configs to EC2
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "nginx/"
+        target: "~/air_quality_monitor/"
+        
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
       with:
