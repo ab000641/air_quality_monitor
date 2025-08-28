@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   db:
     image: postgres:16-alpine
@@ -44,6 +45,7 @@ services:
     command: gunicorn --bind 0.0.0.0:5001 app:app
     volumes:
       - ./app.py:/app/app.py
+      - static_data:/app/static # 👈 新增：共用靜態檔案
 
   worker:
     image: cokehuang/air_quality_monitor:latest
@@ -81,6 +83,7 @@ services:
       - /etc/letsencrypt/live/ab000641.site/privkey.pem:/etc/nginx/ssl/live/ab000641.site/privkey.pem:ro
       - /etc/letsencrypt/options-ssl-nginx.conf:/etc/nginx/ssl/options-ssl-nginx.conf:ro
       - /etc/letsencrypt/ssl-dhparams.pem:/etc/nginx/ssl/ssl-dhparams.pem:ro
+      - static_data:/usr/share/nginx/html/static:ro # 👈 新增：讀取靜態檔案
     depends_on:
       web:
         condition: service_started
@@ -89,3 +92,4 @@ services:
 volumes:
   db_data:
   redis_data:
+  static_data: # 👈 新增：定義靜態檔案 volume
